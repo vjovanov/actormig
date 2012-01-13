@@ -1,0 +1,11 @@
+> run "fork"
+$ exists flag
+$ delete flag
+
+$ mkdir "forked"
+> set fork := true
+> 'set baseDirectory in run <<= baseDirectory(_ / "forked")'
+
+> run "forked"
+$ exists forked/flag
+$ absent flag

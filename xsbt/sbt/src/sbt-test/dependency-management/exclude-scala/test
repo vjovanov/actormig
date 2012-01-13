@@ -1,0 +1,13 @@
+> scala-override
+
+$ touch sbinary
+> reload
+> scala-override
+
+$ touch noscala
+> reload
+> scala-override
+
+$ delete sbinary
+> reload
+-> scala-override
