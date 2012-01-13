@@ -13,6 +13,7 @@ Then in section "Step by Step Guide for Migration to Akka" we show individual st
 ## Staying With Scala Actors
 * Scala actors will be moved to scalax. Every project that wants to keep using them can switch to that implementation by following guidelines in this section.
 * Explanation for SBT, ANT and manual builds.
+* Check the policy of scalax !!
 
 ## Migration Overview
 
@@ -25,9 +26,11 @@ Then in section "Step by Step Guide for Migration to Akka" we show individual st
 
 ### Inheritance of Actor, Reactor and ReplyReactor 
 
-### Introduction of React
+### Introduction of CPS React
 
 ### Replacement explanation for each method
+
+
 
 ## Step by Step Guide for Migration to Akka
 
@@ -50,6 +53,6 @@ All actors, reactors, channels and reply reactors should be changed to RichActor
 ### Fault Handling 
 * Changing to fault handling in actor hierarchies
 
-### Changing the Imports
+### Changing the Imports and the build to Akka 
 
 ### Move as many actors as possible to standard Akka implementation 

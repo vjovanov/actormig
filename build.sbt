@@ -4,11 +4,12 @@ version := "1.0"
 
 organization := "lamp.epfl.ch"
 
-scalaVersion := "2.9.1"
+//--- Local Scala
+
+scalaHome := Some(scalaHomeDir)
+
+//--- End of Local Scala
 
 
-resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
-
-libraryDependencies += "org.scala-tools.testing" %% "scalacheck" % "1.9" % "test"
-
-libraryDependencies += "com.typesafe.akka" % "akka-actor" % "2.0-SNAPSHOT"
+unmanagedJars in Compile <<= baseDirectory map { base => ((base ** "*.jar") +++ 
+  (scalaHomeDir / "lib" / "scala-actors.jar")).classpath }
