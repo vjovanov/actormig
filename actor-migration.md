@@ -44,47 +44,53 @@ Then in section "Step by Step Guide for Migration to Akka" we show individual st
 In Akka actors can be accessed only through the narrow interface named `ActorRef`. Instances of `ActorRef` are acquired by instantiating actors only within the special block that is passed to the `actorOf` method of `ActorSystem` object. To ease the migration we have added the subset of Akka `ActorRef` and `ActorSystem`.
 Migration to `ActorRef`s will be the next step in migration. We will present how to migrate most common patterns of Scala `Actor` instantiation and the we will show how to overcome issues when method signatures of `ActorRef` and `Actor` do not align.  
 
-#### Constructor Call Instantiation
+1. Constructor Call Instantiation
  
-    val migActor = new MigratingActor(arg1, arg2) 
+        val migActor = new MigratingActor(arg1, arg2) 
 
-should be replaced with: 
+    Should be replaced with: 
  
-    val migActor = ActorSystem.actorOf(new MigrationActor(arg1, arg2))
+        val migActor = ActorSystem.actorOf(new MigrationActor(arg1, arg2))
  
-In case constructor is called with no arguments the special version of method `actorOf` can be used.
+    In case constructor is called with no arguments the special version of method `actorOf` can be used.
  
-    val migActor = ActorSystem.actorOf[MigrationActorNoArgs]
+        val migActor = ActorSystem.actorOf[MigrationActorNoArgs]
  
-#### DSL for Creating Actors
+2. DSL for Creating Actors
 
-    val migActor = actor { 
-      // actor definition
-    }
+        val migActor = actor { 
+           // actor definition
+        }
 
-   Should be replace with: 
+    Should be replace with: 
 
-    val migActor = ActorSystem.actorOf(actor {
-      // actor definition
-    })
+        val migActor = ActorSystem.actorOf(actor {
+           // actor definition
+        })
 
-#### Object Extended from Actor
+3. Object Extended from Actor
 
-    object MigrationActor extends Actor { 
-      // MigrationActor definition 
-    }
+        object MigrationActor extends Actor { 
+           // MigrationActor definition 
+        }
     
-Should be replaced with:
+    Should be replaced with:
 
-    object MigrationActor {
-      val ref = ActorSystem.actorOf[MigrationActor]
-    } 
-    class MigrationActor extends Actor {
-      // Same MigrationActor definition
-    }
+        object MigrationActor {
+          val ref = ActorSystem.actorOf[MigrationActor]
+        }
+        
+        class MigrationActor extends Actor {
+          // Same MigrationActor definition
+        }
      
 #### Different Method Signatures
 
+We have changed all the instantiations of actors to return `ActorRef`s but we are not done yet. Since there are differences in usage of `ActorRefs` and `Actors` we will show how to migrate method usages. Unfortunately, some of the methods that exist on `Actor` can not be migrated. The list of methods that can not be migrated are:
+* TODO
+
+For other methods we provide simple translation scheme:    
+#### ActorRefs and Patern Matching
 
 ### Changing to RichActor
 * All actors should be changed to `RichActor`
