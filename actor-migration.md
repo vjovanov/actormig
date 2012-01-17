@@ -34,13 +34,60 @@ Then in section "Step by Step Guide for Migration to Akka" we show individual st
 
 ## Step by Step Guide for Migration to Akka
 
+### Everything as an Actor
+ Scala Actors have the whole hierarchy of actor classes that can be extended. TODO List them
+ they all need to be replaced with an Actor. This will be straight forward since actor is subtype of all of them and provides only additional functionality. 
+
+
 ### Instantiation
 
-* First change all actors (as they are) to be instantiated with actorOf
-* Then fix the code to work with ActorRefs. Each public method on the actor trait needs to be addressed. 
+In Akka actors can be accessed only through the narrow interface named `ActorRef`. Instances of `ActorRef` are acquired by instantiating actors only within the special block that is passed to the `actorOf` method of `ActorSystem` object. To ease the migration we have added the subset of Akka `ActorRef` and `ActorSystem`.
+Migration to `ActorRef`s will be the next step in migration. We will present how to migrate most common patterns of Scala `Actor` instantiation and the we will show how to overcome issues when method signatures of `ActorRef` and `Actor` do not align.  
+
+#### Constructor Call Instantiation
+ 
+    val migActor = new MigratingActor(arg1, arg2) 
+
+should be replaced with: 
+ 
+    val migActor = ActorSystem.actorOf(new MigrationActor(arg1, arg2))
+ 
+In case constructor is called with no arguments the special version of method `actorOf` can be used.
+ 
+    val migActor = ActorSystem.actorOf[MigrationActorNoArgs]
+ 
+#### DSL for Creating Actors
+
+    val migActor = actor { 
+      // actor definition
+    }
+
+   Should be replace with: 
+
+    val migActor = ActorSystem.actorOf(actor {
+      // actor definition
+    })
+
+#### Object Extended from Actor
+
+    object MigrationActor extends Actor { 
+      // MigrationActor definition 
+    }
+    
+Should be replaced with:
+
+    object MigrationActor {
+      val ref = ActorSystem.actorOf[MigrationActor]
+    } 
+    class MigrationActor extends Actor {
+      // Same MigrationActor definition
+    }
+     
+#### Different Method Signatures
+
 
 ### Changing to RichActor
-All actors, reactors, channels and reply reactors should be changed to RichActor
+* All actors should be changed to `RichActor`
 
 ### Act Method
 * Changing receive to cps based react
