@@ -86,10 +86,24 @@ Migration to `ActorRef`s will be the next step in migration. We will present how
      
 #### Different Method Signatures
 
-We have changed all the instantiations of actors to return `ActorRef`s but we are not done yet. Since there are differences in usage of `ActorRefs` and `Actors` we will show how to migrate method usages. Unfortunately, some of the methods that exist on `Actor` can not be migrated. The list of methods that can not be migrated are:
-* TODO
+We have changed all the instantiations of actors to return `ActorRef`s but we are not done yet. Since there are differences in usage of `ActorRefs` and `Actors` we will show how to migrate method usages. Unfortunately, some of the methods that exist on `Actor` can not be migrated. For the following methods you will have to find a way around them in your code:
 
-For other methods we provide simple translation scheme:    
+1. `getState()` - actors in Akka are managed by their supervising actors and are restarted by default. In that scenario state of an actor is not relevant.
+ 
+2. `restart()` - standard Akka actors are restarted by default after failure. TODO. Explain how to migrate this functionality.
+
+For other methods we provide simple translation scheme:
+
+1. `!!(msg: Any): Future[Any]` - should be replaced with method `?(message: Any)(implicit timeout: Timeout): Future[Any]`. For example, `actor !! message` should be replaced with `actor ? message'.
+  
+2. `!![A] (msg: Any, handler: PartialFunction[Any, A]): Future[A]` - TODO
+ 
+3. `!? (msg: Any): Any` - should be replaced with `?(message: Any)(implicit timeout: Timeout): Future[Any]` and explicit blocking on the future. For example,`actor !? message` should be replaced with `Some((actor ? message)())'.
+ 
+4. `!? (msec: Long, msg: Any): Option[Any]` - should be replaced with `?(message: Any)(implicit timeout: Timeout): Future[Any]` and explicit blocking on the future. For example,`actor !? message` should be replaced with `Some((actor ?(message)(msec))())'.  
+    
+Other public methods are public just for purposes of actors DSL and can actually be used inside the actor definition.
+    
 #### ActorRefs and Patern Matching
 
 ### Changing to RichActor
