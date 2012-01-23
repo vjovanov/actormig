@@ -41,7 +41,7 @@ Scala Actors provide following actors in their hierarchy:
 
 3. `Actor` - stays the same
 
-4. `DaemonActor` - TODO ask Philipp.  
+4. `DaemonActor` - TODO daemon dispatcher.  
 
 
 ### 2. Instantiation
@@ -99,19 +99,25 @@ At this point we have changed all the instantiations of actors to return `ActorR
 
 For other methods we provide simple translation scheme:
 
-1. `!!(msg: Any): Future[Any]` - should be replaced with method `?(message: Any)(implicit timeout: Timeout): Future[Any]`. For example, `actor !! message` should be replaced with `actor ? message'.
+1. `!!(msg: Any): Future[Any]` - should be replaced with invocation of method `?(message: Any)(implicit timeout: Timeout): Future[Any]`. For example, `actor !! message` should be replaced with `val fut = actor ? message; fut()`.
   
-2. `!![A] (msg: Any, handler: PartialFunction[Any, A]): Future[A]` - TODO
+2. `!![A] (msg: Any, handler: PartialFunction[Any, A]): Future[A]` - should be replaced with invocation of method `?(message: Any)(implicit timeout: Timeout): Future[Any]`. The handler can be extracted as a separate function and then applied to the generated future result. The result of handle should yield another future like in the following example:
+         
+        val handler: PartialFunction[Any, T] =  ... // code of the handler             
+        val fut = (respActor ? msg)        
+        Futures.future{handler.apply(fut2())}
  
-3. `!? (msg: Any): Any` - should be replaced with `?(message: Any)(implicit timeout: Timeout): Future[Any]` and explicit blocking on the future. For example,`actor !? message` should be replaced with `Some((actor ? message)())'.
+3. `!? (msg: Any): Any` - should be replaced with `?(message: Any)(implicit timeout: Timeout): Future[Any]` and explicit blocking on the future. For example,`actor !? message` should be replaced with `Some((respActor.?(msg2)(Duration.Inf))())`.
  
-4. `!? (msec: Long, msg: Any): Option[Any]` - should be replaced with `?(message: Any)(implicit timeout: Timeout): Future[Any]` and explicit blocking on the future. For example,`actor !? message` should be replaced with `Some((actor ?(message)(msec))())'.  
+4. `!? (msec: Long, msg: Any): Option[Any]` - should be replaced with `?(message: Any)(implicit timeout: Timeout): Future[Any]` and explicit blocking on the future. For example,`actor !? (timeout, message)` should be replaced with `Some((actor.?(message)(timeout))())`.  
     
 Other public methods are public just for purposes of actors DSL and can be used inside the actor definition. Therefore there is no need to migrate those methods in this phase.
     
 After migrating these methods you can run your test suite and the behavior of the system should remain the same. 
 
 #### ActorRefs and Pattern Matching
+
+If your actors were defined as an object or a case class and you were pattern matching against them you should not convert pattern matching to `ActorRef`s. In the following steps we will change abstractions where pattern matching was needed.
 
 ### 3. Changing to RichActor
 

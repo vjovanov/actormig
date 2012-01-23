@@ -45,13 +45,14 @@ object L61 extends App {
   val myActor = system.actorOf(Props[FailingActor].withFaultHandler(
      OneForOneStrategy(myDec, None, None)) , name = "myactor")  
    
-  myActor ! "hello"  
+  myActor ! "hello"   
   println("banged hello")
   // wait a bit 
   Thread.sleep(1000)
 
   // bang again 
   myActor ! "hello"
+  myActor ? "hello" Duraiton.Inf
   println("banged hello again!")
 
   system.shutdown()
