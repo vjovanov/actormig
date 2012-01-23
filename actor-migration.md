@@ -28,20 +28,20 @@ Then in section "Step by Step Guide for Migration to Akka" we show individual st
 
 ## Step by Step Guide for Migration to Akka
 
-In this chapter we will go through (XXX) phases of actor migration. After each phase you should be able to run and test your code. After completion of the last phase you should be able to change the jar to akka and rename the imports and the code will continue working as it did before. 
+In this chapter we will go through 5 phases of actor migration. After each phase you should be able to run and test your code. After completion of the last phase you should be able to have exactly the same functionality on Akka code base. 
 
 ### 1. Everything as an Actor
 Scala Actors provide public access to multiple types of actors. They are organized in the hierarchy and each subclass provides slight richer functionality. To make migration easier first step will be to change each type of actor that is used in the project to actual class `Actor`. This migration step should not be complicated since the `Actor` class is located at the bottom of the hierarchy and provides broadest functionality. 
 
 Scala Actors provide following actors in their hierarchy:
  
-1. Reactor - migrate by changing your class definition from `class xyz extends Reactor[T]` to `class xyz extends Actor`
+1. `Reactor` - migrate by changing your class definition from `class xyz extends Reactor[T]` to `class xyz extends Actor`. Compared to the `Actor`, `Reactor` provides additional type parameter which marks the type of the messages received. If your code uses that information than you might need to *i)* apply pattern matching with explicit type or *ii)* do the downcast from `Any` to the type of the message.  
 
-2. ReplyReactor - migrate by changing your class definition from `class xyz extends ReplyReactor` to `class xyz extends Actor`
+2. `ReplyReactor` - migrate by changing your class definition from `class xyz extends ReplyReactor` to `class xyz extends Actor`
 
-3. Actor - stays the same
+3. `Actor` - stays the same
 
-4. DaemonActor - TODO ask Philipp.  
+4. `DaemonActor` - TODO ask Philipp.  
 
 
 ### 2. Instantiation
@@ -138,7 +138,7 @@ At this point your code is ready to operate on Akka actors. Now we can switch th
  
 TODO write the script for changing imports if there are no corner cases.
  
-### 6. Move as many actors as possible to standard Akka implementation
+### 6.(Optional) Move as many actors as possible to standard Akka implementation
 Now that you have migrated your code base to Akka actors your actors should run one order of magnitude faster. Also, you can start exploring available functionality of Akka. To explore all the great features of Akka acotors visit their documentation site TODO link. Ideally all the changes we have made should be ironed out to function by Akka original design (without `RichActor`). Try changing your functionality to work with standard Akka actor.    
 
 Written and implemented by: Vojin Jovanovic and Philipp Haller
