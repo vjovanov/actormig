@@ -15,6 +15,7 @@ Then in section "Step by Step Guide for Migration to Akka" we show individual st
 
 ## Staying With Scala Actors
 
+TODO Move section to end.
 In this section we discuss the possibility of staying with current implementation of Scala Actors. Here we will explain which actor usage patterns will be hard to migrate and which patterns should not be complicated. 
 
 One of fundamental differences between Scala and Akka actors is exhaustivity of `react`/`receive` methods. In Scala it is possible to write non-exhaustive partial funtctions. Also it is possbile to nest `react` methods to the arbitrary level of depth for the purpose of serving just one message and then returning to the previous behavior. Also in Scala Actors linking working in bidirectional way while in Akka it is implemented unidirectionally. 
@@ -34,6 +35,13 @@ In case you decide to stay with Scala actors the following changes need to be do
 2. To enable coexistence of Scalax actors and Scala we have changed package names to TODO. You will have to go through your code and replace all import packages from `scala.actors` to scalax.actors`. 
 
 Remaining of this document is dedicated to migration from Scala Actors to Akka. In case you decided to stay with Scala Actors there is no need to read further.
+
+TODO Talk about linking/fault handling
+#### Linking and Unlinking 
+* Conversion to death watch and DeathPact from Akka
+
+#### Fault Handling 
+In Scala Actors actor local fault handling was done using the method.
 
 ## Migration Overview
 
@@ -89,9 +97,12 @@ Migration to `ActorRef`s will be the next step in migration. We will present how
 
     Should be replace with: 
 
-        val migActor = ActorSystem.actorOf(actor {
-           // actor definition
+        val migActor = ActorSystem.actorOf(new Actor {
+           def act() {
+             // actor definition
+           }
         })
+        migActor.start()
 
 3. Object Extended from Actor
 
@@ -135,10 +146,6 @@ Other public methods are public just for purposes of actors DSL and can be used 
     
 After migrating these methods you can run your test suite and the behavior of the system should remain the same. 
 
-#### ActorRefs and Pattern Matching
-
-If your actors were defined as an object or a case class and you were pattern matching against them you should not convert pattern matching to `ActorRef`s. In the following steps we will change abstractions where pattern matching was needed.
-
 ### 3. Changing to RichActor
 
 At this point we have changed all actors to use the same Actor interface and made them be created through special factory methods and accessed through `ActorRef` interface. Now we need to change all actors to the `RichActor` class. This class behaves exactly the same like Scala `Actor` but provides methods that allow easy, step by step, migration to Akka behavior.
@@ -147,22 +154,26 @@ To change your code base to the new type of actor all your actors should extend 
 After this point you can run your test suite (assuming that you have one) and everything should work as before. 
 
 ### 4. Removing the `act` Method
-* Warning about the continuation of react
-* Changing loop combinators to standard loops. 
 
-#### Linking and Unlinking 
-* Conversion to death watch and DeathPact from Akka
+* In scala.actors, behavior is defined by implementing the act method. Logically, an actor is a concurrent process
+  which simply executes the body of its act method, and then terminates.
 
-#### Fault Handling 
-In Scala Actors actor local fault handling was done using the method.
+* In Akka, the behavior of an actor is defined using a global message handler which processes the messages in the
+  actors mailbox one by one. The message handler is a partial function which gets applied to each message.
 
-### 5. Changing the Imports and the build to Akka 
-At this point your code is ready to operate on Akka actors. Now we can switch the actual jar from Scala Actors to Akka actors. After this change the compilation will fail due to different package names. We will have to change each imported actor from scala to Akka. Other than packages all class names completely match. To ease he complexity we provide the simple `bash` script (TODO link) that will change simple instances of import statements. If there are any special cases, text search and replace needs to be used. The table of conversions is presented below:
+* Patterns: code-react, loop-react, code-loop-react, code-loop-react-react, same with reactWithin
 
-1. TODO
- 
-TODO write the script for changing imports if there are no corner cases.
- 
+reactWithin(500) {
+  case TIMEOUT =>
+  case Msg =>
+}
+
+### 5. Changing the Imports and the build to Akka
+At this point your code is ready to operate on Akka actors. Now we can switch the actual jar from Scala Actors to
+Akka actors. After this change the compilation will fail due to different package names. We will have to change each
+imported actor from scala to Akka. Other than packages all class names completely match. If there are any
+special cases, text search and replace needs to be used. The table of conversions is presented below:
+
 ### 6.(Optional) Move as many actors as possible to standard Akka implementation
 Now that you have migrated your code base to Akka actors your actors should run one order of magnitude faster. Also, you can start exploring available functionality of Akka. To explore all the great features of Akka acotors visit their documentation site TODO link. Ideally all the changes we have made should be ironed out to function by Akka original design (without `RichActor`). Try changing your functionality to work with standard Akka actor.    
 
