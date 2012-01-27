@@ -66,7 +66,7 @@ Scala Actors provide following actors in their hierarchy:
 
 ### 2. Instantiations
 
-In Akka actors can be accessed only through the narrow interface named `ActorRef`. Instances of `ActorRef` are acquired by instantiating actors only within the special block that is passed to the `actorOf` method of `ActorSystem` object. To ease the migration we have added the subset of Akka `ActorRef` and `ActorSystem`.
+In Akka actors can be accessed only through the narrow interface named `ActorRef`. Instances of `ActorRef` are acquired by instantiating actors only within the special block that is passed to the `actorOf` method of `MigrationSystem` object. To ease the migration we have added the subset of Akka `ActorRef` and `MigrationSystem`.
 Migration to `ActorRef`s will be the next step in migration. We will present how to migrate most common patterns of Scala `Actor` instantiation and the we will show how to overcome issues when method signatures of `ActorRef` and `Actor` do not align.  
 
 1. Constructor Call Instantiation
@@ -75,11 +75,11 @@ Migration to `ActorRef`s will be the next step in migration. We will present how
 
     Should be replaced with: 
  
-        val migActor = ActorSystem.actorOf(new MigrationActor(arg1, arg2))
+        val migActor = MigrationSystem.actorOf(new MigrationActor(arg1, arg2))
  
     In case constructor is called with no arguments the special version of method `actorOf` can be used.
  
-        val migActor = ActorSystem.actorOf[MigrationActorNoArgs]
+        val migActor = MigrationSystem.actorOf[MigrationActorNoArgs]
  
 2. DSL for Creating Actors
 
@@ -89,7 +89,7 @@ Migration to `ActorRef`s will be the next step in migration. We will present how
 
     Should be replace with: 
 
-        val migActor = ActorSystem.actorOf(actor {
+        val migActor = MigrationSystem.actorOf(actor {
            // actor definition
         })
 
@@ -102,7 +102,7 @@ Migration to `ActorRef`s will be the next step in migration. We will present how
     Should be replaced with:
 
         object MigrationActor {
-          val ref = ActorSystem.actorOf[MigrationActor]
+          val ref = MigrationSystem.actorOf[MigrationActor]
         }
         
         class MigrationActor extends Actor {
