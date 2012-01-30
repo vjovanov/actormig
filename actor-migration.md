@@ -146,10 +146,10 @@ Other public methods are public just for purposes of actors DSL and can be used 
     
 After migrating these methods you can run your test suite and the behavior of the system should remain the same. 
 
-### 3. Changing to RichActor
+### 3. Changing to StashingActor
 
-At this point we have changed all actors to use the same Actor interface and made them be created through special factory methods and accessed through `ActorRef` interface. Now we need to change all actors to the `RichActor` class. This class behaves exactly the same like Scala `Actor` but provides methods that allow easy, step by step, migration to Akka behavior.
-To change your code base to the new type of actor all your actors should extend `RichActor`. Each, `class xyz extends Actor` should become `class xyz extends RichActor`.
+At this point we have changed all actors to use the same Actor interface and made them be created through special factory methods and accessed through `ActorRef` interface. Now we need to change all actors to the `StashingActor` class. This class behaves exactly the same like Scala `Actor` but provides methods that allow easy, step by step, migration to Akka behavior.
+To change your code base to the new type of actor all your actors should extend `StashingActor`. Each, `class xyz extends Actor` should become `class xyz extends StashingActor`.
 
 After this point you can run your test suite (assuming that you have one) and everything should work as before. 
 
@@ -175,7 +175,7 @@ imported actor from scala to Akka. Other than packages all class names completel
 special cases, text search and replace needs to be used. The table of conversions is presented below:
 
 ### 6.(Optional) Move as many actors as possible to standard Akka implementation
-Now that you have migrated your code base to Akka actors your actors should run one order of magnitude faster. Also, you can start exploring available functionality of Akka. To explore all the great features of Akka acotors visit their documentation site TODO link. Ideally all the changes we have made should be ironed out to function by Akka original design (without `RichActor`). Try changing your functionality to work with standard Akka actor.    
+Now that you have migrated your code base to Akka actors your actors should run one order of magnitude faster. Also, you can start exploring available functionality of Akka. To explore all the great features of Akka acotors visit their documentation site TODO link. Ideally all the changes we have made should be ironed out to function by Akka original design (without `StashingActor`). Try changing your functionality to work with standard Akka actor.    
 
 Written and implemented by: Vojin Jovanovic and Philipp Haller
 
