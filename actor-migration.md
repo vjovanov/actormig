@@ -7,8 +7,10 @@ Reason for this change is that Akka Actors have much better performance, their A
 memory leaks and guides users to always think about fault-handling.
 Moreover, it provides uniform interface for accessing both remote and local actors. 
 
-To ease the difficulties of migration from Scala to Akka Actors we have provided migration code on both Akka and Scala side.
-Purpose of this document is to guide users through the migration process and explain how to use the provided migration kit.   
+To ease the difficulties of migration from Scala to Akka Actors we have provided migration code on both 
+Akka and Scala side.
+Purpose of this document is to guide users through the migration process and explain how to use the
+provided migration kit.   
 
 With release 2.10 Scala Actors will be shipped together with the Scala distribution but separated from the
 `scala-library.jar`. Scala Actors will be contained in the `scala-actors.jar` in the deprecated form.
@@ -17,12 +19,17 @@ The old Scala actors will be preserved in the original form as the part of the S
 
 Future major releases of Scala will not contain Scala actors as the part of the distribution. 
  
-In section "Deciding on Migration" we will discuss what possibilities the user has. In section "Migration Overview" we will describe the migration process and talk about what is being changed in the Scala distribution and Scala actors code base in order to support it . 
-Then in section "Step by Step Guide for Migration to Akka" we show individual steps, with working examples, that one needs to take to convert the code to the version compatible with Akka. Finally, in section "Staying with Scala Actors" we explain how to chnage your build to the non deprecated version.
+In section "Deciding on Migration" we will discuss what possibilities the user has.
+In section "Migration Overview" we will describe the migration process and talk about
+what is being changed in the Scala distribution and Scala actors code base in order to support it. 
+Then in section "Step by Step Guide for Migration to Akka" we show individual steps, with working examples,
+that one needs to take to convert the code to the version compatible with Akka.
+Finally, in section "Staying with Scala Actors" we explain how to chnage your build to the non deprecated version.
 
 ## Deciding on Migration
 
-Each user of Scala actors can choose between staying with the current design and migrating to Akka actors. In this section explain which actor use cases will require non trivial code changes in order to migrate. 
+Each user of Scala actors can choose between staying with the current design and migrating to Akka actors.
+In this section explain which actor use cases will require non trivial code changes in order to migrate. 
 Based on actors use cases in the user code base it will be easier to decide on which path to choose. 
 
 One of fundamental differences between Scala and Akka actors is exhaustivity of `react`/`receive` methods. 
@@ -159,16 +166,20 @@ Other public methods are public just for purposes of actors DSL and can be used 
     
 After migrating these methods you can run your test suite and the behavior of the system should remain the same. 
 
-### 3. Changing to RichActor
+### 3. Changing to `StashingActor`
 
 At this point we have changed all actors to use the same Actor interface and made them be created through special
-factory methods and accessed through `ActorRef` interface. Now we need to change all actors to the `RichActor` class. 
-This class behaves exactly the same like Scala `Actor` but provides methods that allow easy, step by step, migration to Akka behavior.
-To change your code base to the new type of actor all your actors should extend `RichActor`. Each, `class xyz extends Actor` should become `class xyz extends RichActor`.
+factory methods and accessed through `ActorRef` interface.
+Now we need to change all actors to the`StashingActor` class. 
+This class behaves exactly the same like Scala `Actor` but provides methods that allow easy, step by step,
+migration to Akka behavior.
+To change your code base to the new type of actor all your actors should extend `StashingActor`. 
+Each, `class xyz extends Actor` should become `class xyz extends StashingActor`.
 
-To make the code compile you will have to add `override` before the `act` method and to create the empty `handle` method in the code like in the following example.
+To make the code compile you will have to add `override` before the `act` method and to create
+the empty `handle` method in the code like in the following example.
 
-    def MigrationActor extends StashingActor {
+    def AActor extends StashingActor {
        
        def handle = {case x => x}
        
@@ -209,13 +220,18 @@ Now that you have migrated your code base to Akka actors your actors should run 
 
 In case you decided to stay with Scala actors the following changes need to be done to your build scripts and code base. 
 
-1. If you are using SBT as your build tool add the following dependency to your project TODO. In case you are using ant or custom build tools download the appropriate Scala jar from Scalax and modify your build to include it in the class path. 
+1. If you are using SBT as your build tool add the following dependency to your project TODO.
+In case you are using ant or custom build tools download the appropriate Scala jar from Scalax
+and modify your build to include it in the class path. 
 
-2. To enable coexistence of Scalax actors and Scala we have changed package names to TODO. You will have to go through your code and replace all import packages from `scala.actors` to scalax.actors`. 
+2. To enable coexistence of Scalax actors and Scala we have changed package names to TODO.
+You will have to go through your code and replace all import packages from `scala.actors` to scalax.actors`. 
 
 
 Written and implemented by: Vojin Jovanovic and Philipp Haller
 
-Report bugs at the [Scala Bugtracker](https://issues.scala-lang.org/ "Scala issue reporting tool"). During the RC release phase bugs will be fixed within several working days thus that would be the best time to try the migration on your application. 
+Report bugs at the [Scala Bugtracker](https://issues.scala-lang.org/ "Scala issue reporting tool").
+During the RC release phase bugs will be fixed within several working days thus that would be the 
+best time to try the migration on your application. 
 
 
