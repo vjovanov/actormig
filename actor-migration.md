@@ -38,8 +38,8 @@ Also it is possbile to nest `react` methods to the arbitrary level of depth for 
 one message and then returning to the previous behavior.
 Also in Scala Actors linking working in bidirectional way while in Akka it is implemented unidirectionally. 
 
-Although we provide a migration solution for almost every use case there are still some cases that will require more change.
-In the following list there are cases that are not straight forward to migrate with brief explanation.
+Although we provide a migration solution for almost every use case there are still some cases that will require
+more change.In the following list there are cases that are not straight forward to migrate with brief explanation.
 Compare the list with your code so it is easier to decide wheather to stay with Scala Actors or migrate to Akka.
 
 1. Using `react` method that is nested inside other `react` methods. 
@@ -54,8 +54,9 @@ however we do not provide smooth migration for this case although it is still po
 
 4. Usage of methods `getState`. Akka actors do not have explicit state so this functionality will have to be completely changed.
 
-5. Possible concurrency bugs. Concurrent code is notorious for hard bugs. Even the slightest change can make the code misbihave. 
-Due to differencies between actor implementations it is possible that bugs will appear. It is advised that code is thoroghly tested after migration is complete.
+5. Possible concurrency bugs. Concurrent code is notorious for hard bugs. Even the slightest change can make the code
+misbihave. Due to differencies between actor implementations it is possible that bugs will appear. It is advised
+that code is thoroghly tested after migration is complete.
 
 ## Migration Overview
 
@@ -209,15 +210,44 @@ After this point you can run your test suite (assuming that you have one) and th
 ### 4. Removing the `act` Method and Using Akka Methods
 
 `StashingActor` contains methods from both Akka and Scala. Moreover, its default `act` implementation processes 
-messages the same way as Akka processes methods. In this section we describe how to remove the act method and how to change the Stashing a. It is recommended to do this change one actor at a time.
-This step bridges the gap between the different behaviors of Scala and Akka Actors. 
+messages the same way as Akka processes methods. In this section we describe how to remove the `act` method and how to
+change the methods used in `StashingActor` to resemble Akka. It is recommended to do this change one actor at a time. 
 In scala.actors, behavior is defined by implementing the act method. Logically, an actor is a concurrent process
 which simply executes the body of its act method, and then terminates.
 On the other side in Akka, the behavior is defined by using a global message handler which processes the messages in the
 actors mailbox one by one. The message handler is a partial function which gets applied to each message.
 
+Since all Akka behavior depends on the removal of the `act` method we will first do that step and then we will change
+the individual methods. In removal of `act` we will describe the most common usage patterns. For more complex examples
+users will have to figure out how to rewrite code in terms of Akka abstractions. 
+
+#### Removal of Act
+
 First we will explain how to migrate most often patterns used in `act` method and then we will explain how to change
-individual method names. 
+individual method names.
+
+1. If there is any code in the `act` method that is beeing executed before the first `loop` with `react` that code
+should be moved to the `preStart` method.
+
+    def act() {
+       // some code 
+       loop {
+         react {...} 
+       }
+    }
+    
+Should be replaced with
+
+    def preStart() {
+       // some code
+    }
+    
+    def act() {
+      loop {
+        react{...}
+      }
+    }
+ 
 
 
 
