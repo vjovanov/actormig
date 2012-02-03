@@ -52,14 +52,21 @@ Due to differencies between actor implementations it is possible that bugs will 
 
 ## Migration Overview
 
-* Scala actors introduce new actor type that resembles the actors in akka.
-* Scala actors get all transformed into a new scala actor. Then the system is tested. 
-* All actors are then moved to Akka actor by simply changing the import statements.
-* All actors are accessed through ActorRef interfaces.
-* Scala actors are evicted from the standard library but preserved in the distribution???? Is this true? 
-* Are Akka actors placed in the distribution or they need to be imported separately??? 
+Migration is designed so users never have to change big pieces of the system without the possibilty to test it.
+In the first part of the migration the code will still operate on Scala actors implementation but
+the metods used and classes will be transformed to the form that closely resembles Akka actors. 
+In this phase of migration it will be possible to migrate one actor at a time. 
 
-### Inheritance of Actor, Reactor and ReplyReactor 
+After the migration on the Scala side is complete the user should change only import statements and change 
+the library used to Akka. Akka will provide a new actor type that allows migration of Scala actors.
+This step migrates all actors to Akka backend and it could create bugs in the system.
+ 
+The migration kit on the Scala side introduces new actor type (`StashingActor`) and enforces access
+to actors throguh `ActorRef` interface. It also enforces creation of actors through the special methods on the
+`MigrationSystem` object. First 4 steps of the step by step guide change existing actors to use new abstractions.
+On the Akka side we also introduce the `MigrationSystem` and the `StashingActor` which allow modeling of Scala actors
+`react` and the default actor lifeciclye. Once code is migrated to Akka users will be able to use all the features 
+of Akka.
 
 ## Step by Step Guide for Migration to Akka
 
