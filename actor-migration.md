@@ -232,7 +232,7 @@ should be moved to the `preStart` method.
     def act() {
        // some code 
        loop {
-         react {...} 
+         react { ... } 
        }
     }
     
@@ -244,14 +244,12 @@ Should be replaced with
     
     def act() {
       loop {
-        react{...}
+        react{ ... }
       }
     }
- 
 
-
-
-* Patterns: code-react, loop-react, code-loop-react, code-loop-react-react, same with reactWithin
+2. When `act` is in the form of the simple `loop` with a nested react use the following pattern.  
+* Patterns: loop-react, code-loop-react, code-loop-react-react, same with reactWithin
 
 reactWithin(500) {
   case TIMEOUT =>
