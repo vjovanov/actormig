@@ -144,25 +144,37 @@ Migration to `ActorRef`s will be the next step in migration. We will present how
 
 At this point we have changed all the instantiations of actors to return `ActorRef`s, however, we are not done yet. There are differences in usage of `ActorRef`s and `Actor`s and we need to change the usage of each instance. Unfortunately, some of the methods that Scala `Actor` provides can not be migrated. For the following methods you will have to find a way around them in your code:
 
-1. `getState()` - actors in Akka are managed by their supervising actors and are restarted by default. In that scenario state of an actor is not relevant.
+1. `getState()` - actors in Akka are managed by their supervising actors and are restarted by default.
+In that scenario state of an actor is not relevant.
  
-2. `restart()` - standard Akka actors are restarted by default after failure. TODO. Explain how to migrate this functionality.
+2. `restart()` - standard Akka actors are restarted by default after failure and unfortunately we do not provide a way
+to migrate this functionality. TODO.
 
 For other methods we provide simple translation scheme:
 
-1. `!!(msg: Any): Future[Any]` - should be replaced with invocation of method `?(message: Any)(implicit timeout: Timeout): Future[Any]`. For example, `actor !! message` should be replaced with `val fut = actor ? message; fut()`.
+1. `!!(msg: Any): Future[Any]` - should be replaced with invocation of method 
+`?(message: Any)(implicit timeout: Timeout): Future[Any]`. For example, `actor !! message` should be
+replaced with `val fut = actor ? message; fut()`.
   
-2. `!![A] (msg: Any, handler: PartialFunction[Any, A]): Future[A]` - should be replaced with invocation of method `?(message: Any)(implicit timeout: Timeout): Future[Any]`. The handler can be extracted as a separate function and then applied to the generated future result. The result of handle should yield another future like in the following example:
+2. `!![A] (msg: Any, handler: PartialFunction[Any, A]): Future[A]` - should be replaced with invocation
+of method `?(message: Any)(implicit timeout: Timeout): Future[Any]`. The handler can be extracted as a separate
+function and then applied to the generated future result. The result of handle should yield another future like
+in the following example:
          
         val handler: PartialFunction[Any, T] =  ... // code of the handler             
         val fut = (respActor ? msg)        
         Futures.future{handler.apply(fut2())}
  
-3. `!? (msg: Any): Any` - should be replaced with `?(message: Any)(implicit timeout: Timeout): Future[Any]` and explicit blocking on the future. For example,`actor !? message` should be replaced with `Some((respActor.?(msg2)(Duration.Inf))())`.
+3. `!? (msg: Any): Any` - should be replaced with `?(message: Any)(implicit timeout: Timeout): Future[Any]`
+and explicit blocking on the future. For example,`actor !? message` should be replaced with
+`Some((respActor.?(msg2)(Duration.Inf))())`.
  
-4. `!? (msec: Long, msg: Any): Option[Any]` - should be replaced with `?(message: Any)(implicit timeout: Timeout): Future[Any]` and explicit blocking on the future. For example,`actor !? (timeout, message)` should be replaced with `Some((actor.?(message)(timeout))())`.  
+4. `!? (msec: Long, msg: Any): Option[Any]` - should be replaced with
+`?(message: Any)(implicit timeout: Timeout): Future[Any]` and explicit blocking on the future.
+For example,`actor !? (timeout, message)` should be replaced with `Some((actor.?(message)(timeout))())`.  
     
-Other public methods are public just for purposes of actors DSL and can be used inside the actor definition. Therefore there is no need to migrate those methods in this phase.
+Other public methods are public just for purposes of actors DSL and can be used inside the actor definition.
+Therefore there is no need to migrate those methods in this phase.
     
 After migrating these methods you can run your test suite and the behavior of the system should remain the same. 
 
@@ -177,14 +189,16 @@ To change your code base to the new type of actor all your actors should extend 
 Each, `class xyz extends Actor` should become `class xyz extends StashingActor`.
 
 To make the code compile you will have to add `override` before the `act` method and to create
-the empty `handle` method in the code like in the following example.
+the empty `receive` method in the code like in the following example. Also we will have to replace all `receive` methods used 
+within this actor to `handle`.
 
     def AActor extends StashingActor {
        
-       def handle = {case x => x}
+       // dummy receive method (not used for now)
+       def receive = {case x => x}
        
        override def act() {
-         // your old code 
+         // old code with methods recive changed to handle.
        }
     }
 
@@ -192,13 +206,20 @@ Method act needs to be overriden since its implementation in `StashingActor` con
 
 After this point you can run your test suite (assuming that you have one) and the whole system should behave as before. This is due to the fact that methods in `StashingActor` and `Actor` use the same architecture. 
 
-### 4. Removing the `act` Method
+### 4. Removing the `act` Method and Using Akka Methods
 
-* In scala.actors, behavior is defined by implementing the act method. Logically, an actor is a concurrent process
-  which simply executes the body of its act method, and then terminates.
+`StashingActor` contains methods from both Akka and Scala. Moreover, its default `act` implementation processes 
+messages the same way as Akka processes methods. In this section we describe how to remove the act method and how to change the Stashing a. It is recommended to do this change one actor at a time.
+This step bridges the gap between the different behaviors of Scala and Akka Actors. 
+In scala.actors, behavior is defined by implementing the act method. Logically, an actor is a concurrent process
+which simply executes the body of its act method, and then terminates.
+On the other side in Akka, the behavior is defined by using a global message handler which processes the messages in the
+actors mailbox one by one. The message handler is a partial function which gets applied to each message.
 
-* In Akka, the behavior of an actor is defined using a global message handler which processes the messages in the
-  actors mailbox one by one. The message handler is a partial function which gets applied to each message.
+First we will explain how to migrate most often patterns used in `act` method and then we will explain how to change
+individual method names. 
+
+
 
 * Patterns: code-react, loop-react, code-loop-react, code-loop-react-react, same with reactWithin
 
