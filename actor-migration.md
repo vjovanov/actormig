@@ -10,7 +10,7 @@ With release 2.10 Scala Actors will be shipped together with the Scala distribut
 
 Future major releases of Scala will not contain Scala actors as the part of the distribution. 
  
-In section "Staying With Scala Actors" we will discuss the option of staying with the existing implementation of actors. Then in section "Migration Overview" we will describe the migration process and talk about what is being changed in the Scala distribution and Scala actors code base in order to support it . 
+In section "Staying With Scala Actors" we will discuss the option of staying with the existing implementation of actors. In section "Migration Overview" we will describe the migration process and talk about what is being changed in the Scala distribution and Scala actors code base in order to support it . 
 Then in section "Step by Step Guide for Migration to Akka" we show individual steps, with working examples, that one needs to take to convert the code to the version compatible with Akka. 
 
 ## Staying With Scala Actors
@@ -20,28 +20,21 @@ In this section we discuss the possibility of staying with current implementatio
 
 One of fundamental differences between Scala and Akka actors is exhaustivity of `react`/`receive` methods. In Scala it is possible to write non-exhaustive partial funtctions. Also it is possbile to nest `react` methods to the arbitrary level of depth for the purpose of serving just one message and then returning to the previous behavior. Also in Scala Actors linking working in bidirectional way while in Akka it is implemented unidirectionally. 
 
-Although we provide a migration solution for almost every use case there are still cases that will require more change. In the following list there are cases that are not straight forward to migrate with brief explanation. Compare the list with your code so it is easier to decide wheather to stay with Scala Actors or migrate to Akka.
+Although we provide a migration solution for almost every use case there are still some cases that will require more change. In the following list there are cases that are not straight forward to migrate with brief explanation. Compare the list with your code so it is easier to decide wheather to stay with Scala Actors or migrate to Akka.
 
-1. Nested `react` without the loop.
+1. Using `react` method that is nested inside other `react` methods. In this case the partial function needs to be expanded with additional constructs that will bring it closer to Akka model.
 
-2. Relying on bidirectional linking
+2. Using `link` method an relying on the fact that it is bidirectional.
 
-3. Usage of `restart` method on actors
+3. Usage of `restart` method. Akka uses restart policy for actors by default so it is desired to have restart behavior, however smooth migration with this guide is not possible.
 
-4. Usage of methods `getState`
+4. Usage of methods `getState`. Akka actors do not have explicit state so this functionality will have to be completely changed.
  
 In case you decide to stay with Scala actors the following changes need to be done to your build scripts and code base. 
 1. If you are using SBT as your build tool add the following dependency to your project TODO. In case you are using ant or custom build tools download the appropriate Scala jar from Scalax and modify your build to include it in the class path. 
 2. To enable coexistence of Scalax actors and Scala we have changed package names to TODO. You will have to go through your code and replace all import packages from `scala.actors` to scalax.actors`. 
 
 Remaining of this document is dedicated to migration from Scala Actors to Akka. In case you decided to stay with Scala Actors there is no need to read further.
-
-TODO Talk about linking/fault handling
-#### Linking and Unlinking 
-* Conversion to death watch and DeathPact from Akka
-
-#### Fault Handling 
-In Scala Actors actor local fault handling was done using the method.
 
 ## Migration Overview
 
@@ -67,10 +60,9 @@ Scala Actors provide following actors in their hierarchy:
 
 2. `ReplyReactor` - migrate by changing your class definition from `class xyz extends ReplyReactor` to `class xyz extends Actor`
 
-3. `Actor` - stays the same
+3. `Actor` - stays the same as before
 
-4. `DaemonActor` - TODO daemon dispatcher.  
-
+4. `DaemonActor` - currently this functionality can not be migrated. Maybe in later versions of the migration guide we will provide possiblity to migrate this feature.
 
 ### 2. Instantiations
 
@@ -148,10 +140,25 @@ After migrating these methods you can run your test suite and the behavior of th
 
 ### 3. Changing to RichActor
 
-At this point we have changed all actors to use the same Actor interface and made them be created through special factory methods and accessed through `ActorRef` interface. Now we need to change all actors to the `RichActor` class. This class behaves exactly the same like Scala `Actor` but provides methods that allow easy, step by step, migration to Akka behavior.
+At this point we have changed all actors to use the same Actor interface and made them be created through special
+factory methods and accessed through `ActorRef` interface. Now we need to change all actors to the `RichActor` class. 
+This class behaves exactly the same like Scala `Actor` but provides methods that allow easy, step by step, migration to Akka behavior.
 To change your code base to the new type of actor all your actors should extend `RichActor`. Each, `class xyz extends Actor` should become `class xyz extends RichActor`.
 
-After this point you can run your test suite (assuming that you have one) and everything should work as before. 
+To make the code compile you will have to add `override` before the `act` method and to create the empty `handle` method in the code like in the following example.
+
+    def MigrationActor extends StashingActor {
+       
+       def handle = {case x => x}
+       
+       override def act() {
+         // your old code 
+       }
+    }
+
+Method act needs to be overriden since its implementation in `StashingActor` contains the implementation that mimics Akka actors.
+
+After this point you can run your test suite (assuming that you have one) and the whole system should behave as before. This is due to the fact that methods in `StashingActor` and `Actor` use the same architecture. 
 
 ### 4. Removing the `act` Method
 
