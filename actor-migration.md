@@ -151,15 +151,13 @@ After migrating these methods you can run your test suite and the behavior of th
 At this point we have changed all actors to use the same Actor interface and made them be created through special factory methods and accessed through `ActorRef` interface. Now we need to change all actors to the `StashingActor` class. This class behaves exactly the same like Scala `Actor` but provides methods that allow easy, step by step, migration to Akka behavior.
 To change your code base to the new type of actor all your actors should extend `StashingActor`. Each, `class xyz extends Actor` should become `class xyz extends StashingActor`.
 
-After this point you can run your test suite (assuming that you have one) and everything should work as before. 
+After this point you can run your test suite (assuming that you have one) and the whole system should behave as before. 
 
 ### 4. Removing the `act` Method
 
-* In scala.actors, behavior is defined by implementing the act method. Logically, an actor is a concurrent process
-  which simply executes the body of its act method, and then terminates.
+In scala.actors, behavior is defined by implementing the act method. Logically, an actor is a concurrent process which simply executes the body of its act method, and then terminates. At current point in migration `StashingActor` is defined by behavior
 
-* In Akka, the behavior of an actor is defined using a global message handler which processes the messages in the
-  actors mailbox one by one. The message handler is a partial function which gets applied to each message.
+* In Akka, the behavior of an actor is defined using a global message handler which processes the messages in the actors mailbox one by one. The message handler is a partial function which gets applied to each message.
 
 * Patterns: code-react, loop-react, code-loop-react, code-loop-react-react, same with reactWithin
 
@@ -168,7 +166,7 @@ reactWithin(500) {
   case Msg =>
 }
 
-### 5. Changing the Imports and the build to Akka
+### 5. Changing Import Statement
 At this point your code is ready to operate on Akka actors. Now we can switch the actual jar from Scala Actors to
 Akka actors. After this change the compilation will fail due to different package names. We will have to change each
 imported actor from scala to Akka. Other than packages all class names completely match. If there are any
