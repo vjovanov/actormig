@@ -42,19 +42,21 @@ Although we provide a migration solution for almost every use case there are sti
 more change.In the following list there are cases that are not straight forward to migrate with brief explanation.
 Compare the list with your code so it is easier to decide wheather to stay with Scala Actors or migrate to Akka.
 
-1. Using `react` method that is nested inside other `react` methods. 
+1. Using `react`/`reactWithin` method that is nested inside other `react` methods. 
 In this case the message handling partial function needs to be expanded with additional constructs that will bring
 it closer to Akka model. These changes can be confusing but the migration can be done on actor by actor basis. 
 
-2. Using `link` method an relying on the fact that it is bidirectional. In this case code will need to be refactored
+2. Using `receive`/`receiveWithn` methods in scenarios that do not involve complex control flow. 
+
+3. Using `link` method an relying on the fact that it is bidirectional. In this case code will need to be refactored
 so parties linked parties explicitly link to each other in both directions.
 
-3. Usage of `restart` method. Akka uses restart policy for actors by default so it is desired to have restart behavior,
+4. Usage of `restart` method. Akka uses restart policy for actors by default so it is desired to have restart behavior,
 however we do not provide smooth migration for this case although it is still possible.
 
-4. Usage of methods `getState`. Akka actors do not have explicit state so this functionality will have to be completely changed.
+5. Usage of methods `getState`. Akka actors do not have explicit state so this functionality will have to be completely changed.
 
-5. Possible concurrency bugs. Concurrent code is notorious for hard bugs. Even the slightest change can make the code
+6. Possible concurrency bugs. Concurrent code is notorious for hard bugs. Even the slightest change can make the code
 misbihave. Due to differencies between actor implementations it is possible that bugs will appear. It is advised
 that code is thoroghly tested after migration is complete.
 
@@ -179,19 +181,22 @@ Therefore there is no need to migrate those methods in this phase.
     
 After migrating these methods you can run your test suite and the behavior of the system should remain the same. 
 
-### 3. Changing to `StashingActor`
+### 3. Changing `Actor` to `StashingActor`
 
-At this point we have changed all actors to use the same Actor interface and made them be created through special
-factory methods and accessed through `ActorRef` interface.
-Now we need to change all actors to the`StashingActor` class. 
-This class behaves exactly the same like Scala `Actor` but provides methods that allow easy, step by step,
-migration to Akka behavior.
+At this point we instantiate them through special factory methods, all actors to use the same `Actor` interface
+and all actors are accessed through `ActorRef` interface.
+Now we need to change all actors to the`StashingActor` class. This class behaves exactly the same like Scala `Actor`
+but provides methods that allow easy, step by step, migration to Akka behavior.
 To change your code base to the new type of actor all your actors should extend `StashingActor`. 
 Each, `class xyz extends Actor` should become `class xyz extends StashingActor`.
 
+The `StashingActor` does not support `receive`/`receiveWithin` methods. These methods need to be replaced with usage of `react`/`reactWithin`. 
+We will present the transformation only for two simplest scenarions: _i)_ single receive with code before and after _ii)_ receive within a loop.
+
+TODO
+
 To make the code compile you will have to add `override` before the `act` method and to create
-the empty `receive` method in the code like in the following example. Also we will have to replace all `receive` methods used 
-within this actor to `handle`.
+the empty `receive` method in the code like in the following example. 
 
     def AActor extends StashingActor {
        
@@ -199,11 +204,11 @@ within this actor to `handle`.
        def receive = {case x => x}
        
        override def act() {
-         // old code with methods recive changed to handle.
+         // old code with methods receive changed to react.
        }
     }
 
-Method act needs to be overriden since its implementation in `StashingActor` contains the implementation that mimics Akka actors.
+Method `act` needs to be overriden since its implementation in `StashingActor` contains the implementation that mimics Akka actors.
 
 After this point you can run your test suite (assuming that you have one) and the whole system should behave as before. This is due to the fact that methods in `StashingActor` and `Actor` use the same architecture. 
 
