@@ -1,1 +1,0 @@
-[sbt](https://github.com/harrah/xsbt/wiki) is a Scala build tool.
