@@ -98,7 +98,6 @@ object Test extends App {
 
   // TODO test the name resolver with pattern matching
   MigrationSystem.actorOf(Props(() => new Actor with Stash {
-    val serious = SeriousActor.ref
     val silly = SillyActor.ref
 
     // TODO remove trap exit totally 
@@ -109,6 +108,7 @@ object Test extends App {
     def receive = {
       case Terminated(`silly`) =>
         unstashAll()
+        val serious = SeriousActor.ref
         context.watch(SeriousActor.ref)
         context.become {
           case Terminated(`serious`) =>
@@ -160,5 +160,8 @@ object Test extends App {
         stash()
     }
   }, "akka.actor.default-stash-dispatcher"))
+
+  Thread.sleep(1000)
+  MigrationSystem.shutdown()
 }
 
