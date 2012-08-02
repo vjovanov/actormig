@@ -77,50 +77,59 @@ of Akka.
 
 ## Step by Step Guide for Migration to Akka
 
-In this chapter we will go through 5 phases of actor migration. Each phase is designed in a such way that you can test your
-code, to check if everything is still OK in your system. In the first 4 phases one can migrate one actor at a time and test the 
+In this chapter we will go through 5 phases of the actor migration. After each phase you can test your
+code, to check if everything is still OK in the system. In the first 4 phases one can migrate one actor at a time and test the 
 functionality. However, the last phase migrates all actors to Akka and it can be tested only as a whole. After this phase your system
 should have the same functionality as before, but on Akka code base.
 
 ### 1. Everything as an Actor
-Scala Actors provide public access to multiple types of actors. They are organized in the class hierarchy and each subclass provides slight richer functionality. To make migration easier first step will be to change each type of actor that is used in the project to actual class `Actor`. This migration step should not be complicated since the `Actor` class is located at the bottom of the hierarchy and provides broadest functionality. 
+The Scala Actors library provides public access to multiple types of actors. They are organized in the class hierarchy and each subclass
+provides slightly richer functionality. To make migration easier first phase will be to change each actor in your system to be of type `Actor`.
+This migration step is straight forward since the `Actor` class is located at the bottom of the hierarchy and 
+provides the broadest functionality. 
 
-Scala Actors provide following actors in their hierarchy:
+The Scala Actors library provides following actors in its hierarchy:
  
-1. `Reactor` - migrate by changing your class definition from `class xyz extends Reactor[T]` to `class xyz extends Actor`. Compared to the `Actor`, `Reactor` provides additional type parameter which marks the type of the messages received. If your code uses that information than you might need to *i)* apply pattern matching with explicit type or *ii)* do the downcast from `Any` to the type of the message.  
+1. `Reactor` - migrate by changing your class definition from `class MyService extends Reactor[T]` to `class MyReactor extends Actor`. 
+Compared to the `Actor`, `Reactor` provides additional type parameter which marks the type of the messages received. If your code uses
+that information than you might need to: *i)* apply pattern matching with explicit type or, *ii)* do the downcast of your message from
+`Any` to the type `T`.
 
-2. `ReplyReactor` - migrate by changing your class definition from `class xyz extends ReplyReactor` to `class xyz extends Actor`
+2. `ReplyReactor` - migrate by changing your class definition from `class MyService extends ReplyReactor` to `class MyService extends Actor`
 
 3. `Actor` - stays the same as before
 
-4. `DaemonActor` - currently this functionality can not be migrated. Maybe in later versions of the migration guide we will provide possiblity to migrate this feature.
-
+4. `DaemonActor` - this functionality can not be migrated at this phase. For now leave all daemon actors as is.
+ 
 ### 2. Instantiations
 
-In Akka actors can be accessed only through the narrow interface named `ActorRef`. Instances of `ActorRef` are acquired by instantiating actors only within the special block that is passed to the `actorOf` method of `MigrationSystem` object. To ease the migration we have added the subset of Akka `ActorRef` and `MigrationSystem`.
-Migration to `ActorRef`s will be the next step in migration. We will present how to migrate most common patterns of Scala `Actor` instantiation and the we will show how to overcome issues when method signatures of `ActorRef` and `Actor` do not align.  
+In Akka, actors can be accessed only through the narrow interface named `ActorRef`. Instances of `ActorRef` are acquired by
+instantiating actors within the by name block that is passed to the `actorOf` method of the `MigrationSystem` object.
+To ease the migration we have added the subset of the Akka `ActorRef` and the `MigrationSystem`. Migration to `ActorRef`s will be the next step in the migration.
+We will present how to migrate most common patterns of Scala `Actor` instantiation and the we will show how to overcome issues when method signatures
+of `ActorRef` and `Actor` do not align. Since this phase requires two steps we recommend to do it one actor at a time.
 
 1. Constructor Call Instantiation
- 
-        val migActor = new MigratingActor(arg1, arg2) 
 
-    Should be replaced with: 
- 
-        val migActor = MigrationSystem.actorOf(new MigrationActor(arg1, arg2))
- 
+        val myActor = new MyActor(arg1, arg2)
+
+    Should be replaced with:
+
+        val myActor = MigrationSystem.actorOf(new MyActor(arg1, arg2))
+
     In case constructor is called with no arguments the special version of method `actorOf` can be used.
- 
-        val migActor = MigrationSystem.actorOf[MigrationActorNoArgs]
- 
+
+        val myActor = MigrationSystem.actorOf[MigrationActorNoArgs]
+
 2. DSL for Creating Actors
 
-        val migActor = actor { 
+        val myActor = actor { 
            // actor definition
         }
 
-    Should be replace with: 
+    Should be replaced with:
 
-        val migActor = ActorSystem.actorOf(new Actor {
+        val myActor = MigrationSystem.actorOf(new Actor {
            def act() {
              // actor definition
            }
@@ -129,69 +138,72 @@ Migration to `ActorRef`s will be the next step in migration. We will present how
 
 3. Object Extended from Actor
 
-        object MigrationActor extends Actor { 
-           // MigrationActor definition 
+        object MyActor extends Actor { 
+           // MyActor definition 
         }
-    
+
     Should be replaced with:
 
-        object MigrationActor {
-          val ref = MigrationSystem.actorOf[MigrationActor]
+        object MyActor {
+          val ref = MigrationSystem.actorOf[MyActor]
         }
-        
-        class MigrationActor extends Actor {
-          // Same MigrationActor definition
+
+        class MyActor extends Actor {
+          // Same MyActor definition
         }
-     
+
+All accesses to the object `MyActor` should be replaced with accesses to the `MyActor.ref`.
+
 #### Different Method Signatures
 
-At this point we have changed all the instantiations of actors to return `ActorRef`s, however, we are not done yet. There are differences in usage of `ActorRef`s and `Actor`s and we need to change the usage of each instance. Unfortunately, some of the methods that Scala `Actor` provides can not be migrated. For the following methods you will have to find a way around them in your code:
+At this point we have changed all the actor instantiations to return `ActorRef`s, however, we are not done yet.
+There are differences in the usage of `ActorRef`s and `Actor`s and we need to change the methods invoked of each migrated instance.
+Unfortunately, some of the methods that Scala `Actor`s provide can not be migrated. For the following methods you will have to find a workaround:
 
 1. `getState()` - actors in Akka are managed by their supervising actors and are restarted by default.
 In that scenario state of an actor is not relevant.
  
-2. `restart()` - standard Akka actors are restarted by default after failure and unfortunately we do not provide a way
-to migrate this functionality. TODO.
+2. `restart()` - standard Akka actors are restarted by default after failure. This can not be paired on the Scala side.
 
-For other methods we provide simple translation scheme:
+For other methods we provide the simple translation scheme:
 
 1. `!!(msg: Any): Future[Any]` - should be replaced with invocation of method 
 `?(message: Any)(implicit timeout: Timeout): Future[Any]`. For example, `actor !! message` should be
 replaced with `val fut = actor ? message; fut()`.
-  
+
 2. `!![A] (msg: Any, handler: PartialFunction[Any, A]): Future[A]` - should be replaced with invocation
 of method `?(message: Any)(implicit timeout: Timeout): Future[Any]`. The handler can be extracted as a separate
 function and then applied to the generated future result. The result of handle should yield another future like
 in the following example:
-         
-        val handler: PartialFunction[Any, T] =  ... // code of the handler             
-        val fut = (respActor ? msg)        
-        Futures.future{handler.apply(fut2())}
- 
+
+        val handler: PartialFunction[Any, T] =  ... // code of the handler
+        val fut = (respActor ? msg)
+        Futures.future{ handler.apply(fut2()) }
+
 3. `!? (msg: Any): Any` - should be replaced with `?(message: Any)(implicit timeout: Timeout): Future[Any]`
 and explicit blocking on the future. For example,`actor !? message` should be replaced with
 `Some((respActor.?(msg2)(Duration.Inf))())`.
- 
+
 4. `!? (msec: Long, msg: Any): Option[Any]` - should be replaced with
 `?(message: Any)(implicit timeout: Timeout): Future[Any]` and explicit blocking on the future.
 For example,`actor !? (timeout, message)` should be replaced with `Some((actor.?(message)(timeout))())`.  
-    
+
 Other public methods are public just for purposes of actors DSL and can be used inside the actor definition.
 Therefore there is no need to migrate those methods in this phase.
-    
+
 After migrating these methods you can run your test suite and the behavior of the system should remain the same. 
 
 ### 3. Changing `Actor` to `StashingActor`
 
-At this point we instantiate them through special factory methods, all actors to use the same `Actor` interface
+At this point we instantiate actors through special factory methods, all actors to use the same `Actor` interface
 and all actors are accessed through `ActorRef` interface.
 Now we need to change all actors to the`StashingActor` class. This class behaves exactly the same like Scala `Actor`
-but provides methods that allow easy, step by step, migration to Akka behavior.
+but provides methods that allow easy, step by step, migration to the Akka behavior.
 To change your code base to the new type of actor all your actors should extend `StashingActor`. 
-Each, `class xyz extends Actor` should become `class xyz extends StashingActor`.
+Each, `class MyActor extends Actor` should become `class MyActor extends StashingActor`.
 
 The `StashingActor` does not support `receive`/`receiveWithin` methods. These methods need to be replaced with usage of `react`/`reactWithin`. 
-We will present the transformation only for two simplest scenarions: _i)_ single receive with code before and after _ii)_ receive within a loop.
+We will present the transformation only for two simplest scenarios: _i)_ single receive with code before and after _ii)_ receive within a loop.
 
 TODO
 
@@ -199,10 +211,10 @@ To make the code compile you will have to add `override` before the `act` method
 the empty `receive` method in the code like in the following example. 
 
     def AActor extends StashingActor {
-       
+
        // dummy receive method (not used for now)
        def receive = {case x => x}
-       
+
        override def act() {
          // old code with methods receive changed to react.
        }
@@ -210,21 +222,22 @@ the empty `receive` method in the code like in the following example.
 
 Method `act` needs to be overriden since its implementation in `StashingActor` contains the implementation that mimics Akka actors.
 
-After this point you can run your test suite (assuming that you have one) and the whole system should behave as before. This is due to the fact that methods in `StashingActor` and `Actor` use the same architecture. 
+After this point you can run your test suite (assuming that you have one) and the whole system should behave as before.
+This is due to the fact that methods in `StashingActor` and `Actor` use the same architecture. 
 
 ### 4. Removing the `act` Method and Using Akka Methods
 
 `StashingActor` contains methods from both Akka and Scala. Moreover, its default `act` implementation processes 
 messages the same way as Akka processes methods. In this section we describe how to remove the `act` method and how to
 change the methods used in `StashingActor` to resemble Akka. It is recommended to do this change one actor at a time. 
-In scala.actors, behavior is defined by implementing the act method. Logically, an actor is a concurrent process
+In `scala.actors`, behavior is defined by implementing the act method. Logically, an actor is a concurrent process
 which simply executes the body of its act method, and then terminates.
 On the other side in Akka, the behavior is defined by using a global message handler which processes the messages in the
 actors mailbox one by one. The message handler is a partial function which gets applied to each message.
 
 Since all Akka behavior depends on the removal of the `act` method we will first do that step and then we will change
 the individual methods. In removal of `act` we will describe the most common usage patterns. For more complex examples
-users will have to figure out how to rewrite code in terms of Akka abstractions. 
+users will have to figure out how to rewrite code in terms of Akka abstractions.
 
 #### Removal of Act
 
@@ -240,13 +253,13 @@ should be moved to the `preStart` method.
          react { ... } 
        }
     }
-    
+
 Should be replaced with
 
     def preStart() {
        // some code
     }
-    
+
     def act() {
       loop {
         react{ ... }
@@ -261,14 +274,12 @@ reactWithin(500) {
   case Msg =>
 }
 
-### 5. Changing Import Statement
+### 5. Changing Import Statements and `StashingActor`
+
 At this point your code is ready to operate on Akka actors. Now we can switch the actual jar from Scala Actors to
 Akka actors. After this change the compilation will fail due to different package names. We will have to change each
 imported actor from scala to Akka. Other than packages all class names completely match. If there are any
 special cases, text search and replace needs to be used. The table of conversions is presented below:
-
-### 6.(Optional) Move as many actors as possible to standard Akka implementation
-Now that you have migrated your code base to Akka actors your actors should run one order of magnitude faster. Also, you can start exploring available functionality of Akka. To explore all the great features of Akka acotors visit their documentation site TODO link. Ideally all the changes we have made should be ironed out to function by Akka original design (without `StashingActor`). Try changing your functionality to work with standard Akka actor.    
 
 ## Staying with Scala Actors 
 
