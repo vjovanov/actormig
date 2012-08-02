@@ -51,7 +51,7 @@ in the last step of the guide. This change can not be done in the step by step f
 can be difficult.
 
 
-Users should be aware that concurrent code is notorious for bugs that are hide to find and tedious to fix.
+Users should be aware that concurrent code is notorious for bugs that are hard to find and tedious to fix.
 Due to differences between actor implementations it is possible that bugs will appear. It is advised
 that code is thoroughly tested after the migration is complete.
 
