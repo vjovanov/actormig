@@ -39,9 +39,10 @@ the user must reshape the basic blocks of his code. Simple examples are presente
 3. Relying on `link`s bidirectional behavior - actors need to explicitly link to each other in both directions.
 
 4. Usage of the `restart` method - Akka does not provide explicit restart of actors so we can not provide the smooth migration for this use-case. 
-The user must find a workaround for the `restart` method.
+The user must reshape the system so there are no usages of the `restart` method.
 
-5. Usage of method `getState` - Akka actors do not have explicit state so this functionality will have to be completely changed.
+5. Usage of method `getState` - Akka actors do not have explicit state so this functionality can not be migrated. The user code must not 
+have `getState` invocations.
 
 6. Not starting actors after instantiation - Akka actors are automatically started when instantiated. Users will have to 
 reshape their system so it starts all the actors right after their instantiation.
@@ -257,7 +258,7 @@ individual method names.
 should be moved to the `preStart` method.
 
     def act() {
-       // some code 
+       // some code
        loop {
          react { ... }
        }
@@ -275,14 +276,80 @@ Should be replaced with
       }
     }
 
-2. When `act` is in the form of the simple `loop` with a nested react use the following pattern.
-* Patterns: loop-react, code-loop-react, code-loop-react-react, same with reactWithin
+This rule applies for all following patterns.
 
-TODO
-reactWithin(500) {
-  case TIMEOUT =>
-  case Msg =>
-}
+2. When `act` is in the form of the simple `loop` with a nested react use the following pattern.
+TODO loop-react
+
+3. When `act` contains a `loopWhile` construct use the following translation.
+    def act() = {
+      loopWhile(c) {
+        react {
+          case x: Int =>
+            // do task
+            if (x == 42) {
+              c = false
+            }
+        }
+      }
+    }
+
+Should be replaced with
+  def receive = {
+     case x: Int =>
+       // do task
+       if (x == 42) {
+         context.stop(self)
+       }
+  }
+
+4. When `act` contains nested reacts use the following rule.
+  def act() = {
+      var c = true
+      loopWhile(c) {
+        react {
+          case x: Int =>
+            // do task
+            if (x == 42) {
+              c = false
+            } else {
+              react {
+                case y: String =>
+                  // do nested task
+              }
+            }
+            // after react
+        }
+      }
+    }
+
+Should be replaced with
+  def receive = {
+    case x: Int =>
+      // do task
+      if (x == 42) {
+        context.stop(self)
+      } else {
+        context.become(({
+          case y: String =>
+            // do nested task
+        }: Receive).andThen(x => {
+          unstashAll()
+          context.unbecome()
+        }).orElse { case x => stash() })
+  }
+
+5. reactWithin
+  reactWithin(500) {
+    case TIMEOUT =>
+    case Msg =>
+  }
+
+  // set the timeout for the Akka actor 
+
+6. Exception handling TODO
+
+7. Linking of actors TODO
 
 ### Phase 5 - Moving to the Akka Back-end
 
