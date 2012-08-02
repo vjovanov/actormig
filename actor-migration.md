@@ -362,7 +362,6 @@ special cases, text search and replace needs to be used. The table of conversion
 TODO Philipp: Paragraph about remoting. Here you replace Scala remote actors with akka ones.
   alive(port: Int): Unit - starts the remote service -> this done by configuration in Akka
   register(name, actor) - passing the name to the actorOf
-
 TODO point to the test cases.
 
 Written and implemented by: Vojin Jovanovic and Philipp Haller
