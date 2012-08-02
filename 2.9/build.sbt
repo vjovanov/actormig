@@ -10,5 +10,5 @@ resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/release
 
 libraryDependencies += "org.scala-tools.testing" %% "scalacheck" % "1.9" % "test"
 
-libraryDependencies += "com.typesafe.akka" % "akka-actor" % "2.0-SNAPSHOT"
+libraryDependencies += "com.typesafe.akka" % "akka-actor" % "2.1-SNAPSHOT"
 

@@ -60,28 +60,30 @@ that code is thoroghly tested after migration is complete.
 
 ## Migration Overview
 
-Migration is designed so users never have to change big pieces of the system without the possibilty to test it.
-In the first part of the migration the code will still operate on Scala actors implementation but
-the metods used and classes will be transformed to the form that closely resembles Akka actors. 
-In this phase of migration it will be possible to migrate one actor at a time. 
+Actor Migration Kit should be used in 5 phases. Each phase is designed to introduce minimal changes
+to the code base and, allows the user run all system tests. In the first four phases of the migration 
+the code will use Scala actors implementation, but the methods used and class signatures will be transformed
+to the form that closely resembles Akka actors. The migration kit on the Scala side introduces new actor type 
+(`StashingActor`) and enforces access to actors through `ActorRef` interface. It also enforces creation of actors
+through the special methods on the `MigrationSystem` object. In these phases it will also be possible to migrate one
+actor at a time. This will reduce the possibility of complex errors that are caused by several bugs introduced at the same time.
 
-After the migration on the Scala side is complete the user should change only import statements and change 
+After the migration on the Scala side is complete the user should change import statements and change 
 the library used to Akka. Akka will provide a new actor type that allows migration of Scala actors.
-This step migrates all actors to Akka backend and it could create bugs in the system.
- 
-The migration kit on the Scala side introduces new actor type (`StashingActor`) and enforces access
-to actors throguh `ActorRef` interface. It also enforces creation of actors through the special methods on the
-`MigrationSystem` object. First 4 steps of the step by step guide change existing actors to use new abstractions.
-On the Akka side we also introduce the `MigrationSystem` and the `StashingActor` which allow modeling of Scala actors
-`react` and the default actor lifeciclye. Once code is migrated to Akka users will be able to use all the features 
+This step migrates all actors to the Akka back-end and it could create bugs in the system. On the Akka side we
+introduce the `MigrationSystem` and the `Actor with Statsh` which allow modeling of Scala's actors `react`
+and the default actor life-cycle. Once code is migrated to Akka users will be able to use all the features 
 of Akka.
 
 ## Step by Step Guide for Migration to Akka
 
-In this chapter we will go through 5 phases of actor migration. Each phase is designed in a such way that you can test your code to check if everything is still OK in your system. After completion of the last phase you should be able to have the same functionality but on Akka code base. 
+In this chapter we will go through 5 phases of actor migration. Each phase is designed in a such way that you can test your
+code, to check if everything is still OK in your system. In the first 4 phases one can migrate one actor at a time and test the 
+functionality. However, the last phase migrates all actors to Akka and it can be tested only as a whole. After this phase your system
+should have the same functionality as before, but on Akka code base.
 
 ### 1. Everything as an Actor
-Scala Actors provide public access to multiple types of actors. They are organized in the hierarchy and each subclass provides slight richer functionality. To make migration easier first step will be to change each type of actor that is used in the project to actual class `Actor`. This migration step should not be complicated since the `Actor` class is located at the bottom of the hierarchy and provides broadest functionality. 
+Scala Actors provide public access to multiple types of actors. They are organized in the class hierarchy and each subclass provides slight richer functionality. To make migration easier first step will be to change each type of actor that is used in the project to actual class `Actor`. This migration step should not be complicated since the `Actor` class is located at the bottom of the hierarchy and provides broadest functionality. 
 
 Scala Actors provide following actors in their hierarchy:
  
