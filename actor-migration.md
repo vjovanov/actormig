@@ -7,17 +7,15 @@ Reason for this change is that Akka Actors have much better performance, their A
 memory leaks and guides users to always think about fault-handling.
 Moreover, it provides uniform interface for accessing both remote and local actors. 
 
-To ease the difficulties of migration from Scala to Akka Actors we have provided migration code on both 
+To ease the difficulties of migration from Scala to Akka Actors we have provided the Actor Migration Kit on both 
 Akka and Scala side.
 Purpose of this document is to guide users through the migration process and explain how to use the
 provided migration kit.   
 
 With release 2.10 Scala Actors will be shipped together with the Scala distribution but separated from the
 `scala-library.jar`. Scala Actors will be contained in the `scala-actors.jar` in the deprecated form.
-Together with the distribution we will include Akka Actors in file `akka-actors.jar`.
-The old Scala actors will be preserved in the original form as the part of the Scalax community library.    
-
-Future major releases of Scala will not contain Scala actors as the part of the distribution. 
+Together with the distribution we will include Akka Actors in file `akka-actors.jar`. Future major releases 
+of Scala will not contain Scala actors as the part of the distribution. 
  
 In section "Deciding on Migration" we will discuss what possibilities the user has.
 In section "Migration Overview" we will describe the migration process and talk about
