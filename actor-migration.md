@@ -123,11 +123,8 @@ of `ActorRef` and `Actor` do not align. Since this phase requires two steps we r
 
     Should be replaced with:
 
-        val myActor = MigrationSystem.actorOf(new MyActor(arg1, arg2))
-
-    In case constructor is called with no arguments the special version of method `actorOf` can be used.
-
-        val myActor = MigrationSystem.actorOf[MigrationActorNoArgs]
+        MigrationSystem.actorOf(Props(() => 
+          new MyActor(arg1, arg2), "akka.actor.default-stash-dispatcher"))
 
 2. DSL for Creating Actors
 
@@ -137,11 +134,11 @@ of `ActorRef` and `Actor` do not align. Since this phase requires two steps we r
 
     Should be replaced with:
 
-        val myActor = MigrationSystem.actorOf(new Actor {
+        val myActor = MigrationSystem.actorOf(Props(() => new Actor {
            def act() {
              // actor definition
            }
-        })
+        }, "akka.actor.default-stash-dispatcher")
 
 3. Object Extended from Actor
 
@@ -152,19 +149,18 @@ of `ActorRef` and `Actor` do not align. Since this phase requires two steps we r
     Should be replaced with:
 
         object MyActor {
-          val ref = MigrationSystem.actorOf[MyActor]
+          val ref = MigrationSystem.actorOf(Props(() =>
+            new MyActor, "akka.actor.default-stash-dispatcher"))
         }
 
         class MyActor extends Actor {
-          // Same MyActor definition
+          // same MyActor definition
         }
 
 All accesses to the object `MyActor` should be replaced with accesses to the `MyActor.ref`.
 
-
-TODO cleanup this paragraph and move to apropriate location.
-Note that Akka actors are started automatically on instantiation and that the above translation will start all the actors when instantiated.
-In case actors in your system are created and started at different locations you will need to find a workaround and make actors start when instantiated.
+Note that Akka actors are started automatically, on instantiation, and that the above translation will start all the actors on the construction site.
+In case actors in your system are created and started at different locations you will need to change your code so actors are start right after instantiation.
 
 #### Different Method Signatures
 
@@ -213,14 +209,84 @@ To change your code base to the new type of actor all your actors should extend 
 Each, `class MyActor extends Actor` should become `class MyActor extends StashingActor`.
 
 The `StashingActor` does not support `receive`/`receiveWithin` methods. These methods need to be replaced with usage of `react`/`reactWithin`. 
-We will present the transformation only for two simplest scenarios: _i)_ single receive with code before and after _ii)_ receive within a loop.
+We will present the transformation only for two simplest scenarios:  series of receives , _ii)_ receive within a loop.
 
-TODO
+1. Series of `receive` methods with code before and after
 
-To make the code compile you will have to add `override` before the `act` method and to create
+        def act() = {
+          // do before
+          receive {
+            case msg =>
+              // process 1
+          }
+          // in between
+          receive {
+            case msg =>
+              // process 2
+          }
+          // after
+        }
+
+should be replaced with the following code
+
+        def act() = {
+          // do before
+          react (({
+            case msg =>
+              // process 1
+          }: PartialFunction[Any, Unit]).andThen { x =>
+            // in between
+            react (({
+              case msg =>
+                // process 2
+            }: PartialFunction[Any, Unit]).andThen { x =>
+              // after
+            })
+          })
+        }
+
+2. Receive inside a loop that terminates based on a condition.
+
+        def act() = {
+          var c = true
+          while (c) {
+            // before body
+            receive {
+              case msg =>
+                // process
+              case "exit" => 
+                c = false
+            }
+            // after receive
+          }
+          // after loop
+        }
+
+   Should be replaced with
+
+        def act() = {
+          var c = true
+          loopWhile(c) {
+            // before body
+            react (({
+              case msg =>
+                // process
+              case "exit" => 
+                c = false
+            }: PartialFunction[Any, Unit]).andThen { x =>
+              // after receive
+              if (c == false) {
+                // after loop
+              }
+            })
+          }
+        }
+
+
+Additionally, to make the code compile, users must add the `override` keyword before the `act` method and to create
 the empty `receive` method in the code like in the following example. 
 
-    def AActor extends StashingActor {
+    class MyActor extends StashingActor {
 
        // dummy receive method (not used for now)
        def receive = {case x => x}
@@ -233,7 +299,7 @@ the empty `receive` method in the code like in the following example.
 Method `act` needs to be overriden since its implementation in `StashingActor` contains the implementation that mimics Akka actors.
 
 After this point you can run your test suite (assuming that you have one) and the whole system should behave as before.
-This is due to the fact that methods in `StashingActor` and `Actor` use the same architecture. 
+This is due to the fact that methods in `StashingActor` and `Actor` use the same infrastructure.
 
 ### Phase 4 - Removing the `act` Method
 
@@ -257,159 +323,187 @@ individual method names.
 1. If there is any code in the `act` method that is being executed before the first `loop` with `react` that code
 should be moved to the `preStart` method.
 
-    def act() {
-       // some code
-       loop {
-         react { ... }
-       }
-    }
+        def act() {
+          // some code
+          loop {
+            react { ... }
+          }
+        }
 
-Should be replaced with
+   Should be replaced with
 
-    def preStart() {
-       // some code
-    }
+        def preStart() {
+          // some code
+        }
 
-    def act() {
-      loop {
-        react{ ... }
-      }
-    }
+        def act() {
+          loop {
+            react{ ... }
+          }
+        }
 
-This rule applies for all following patterns.
+   This rule applies for all following patterns.
 
 2. When `act` is in the form of the simple `loop` with a nested react use the following pattern.
-TODO loop-react
+        def act() = {
+          loop {
+            react {
+              // body
+            }
+          }
+        }
+   Should be replaced with 
+
+       def receive = {
+         // body
+       }
 
 3. When `act` contains a `loopWhile` construct use the following translation.
-    def act() = {
-      loopWhile(c) {
-        react {
+
+        def act() = {
+          loopWhile(c) {
+            react {
+              case x: Int =>
+                // do task
+                if (x == 42) {
+                  c = false
+                }
+            }
+          }
+        }
+
+   Should be replaced with
+
+        def receive = {
           case x: Int =>
             // do task
             if (x == 42) {
-              c = false
+              context.stop(self)
             }
         }
-      }
-    }
-
-Should be replaced with
-  def receive = {
-     case x: Int =>
-       // do task
-       if (x == 42) {
-         context.stop(self)
-       }
-  }
 
 4. When `act` contains nested reacts use the following rule.
-  def act() = {
-      var c = true
-      loopWhile(c) {
-        react {
+
+        def act() = {
+          var c = true
+          loopWhile(c) {
+          react {
+            case x: Int =>
+              // do task
+              if (x == 42) {
+                c = false
+              } else {
+                react {
+                  case y: String =>
+                    // do nested task
+                }
+              }
+              // after react
+            }
+          }
+        }
+
+Should be replaced with
+
+        def receive = {
           case x: Int =>
             // do task
             if (x == 42) {
-              c = false
+              // after react
+              context.stop(self)
             } else {
-              react {
+              context.become(({
                 case y: String =>
-                  // do nested task
-              }
+                // do nested task
+              }: Receive).andThen(x => {
+                unstashAll()
+                context.unbecome()
+             }).orElse { case x => stash() })
             }
-            // after react
         }
-      }
-    }
-
-Should be replaced with
-  def receive = {
-    case x: Int =>
-      // do task
-      if (x == 42) {
-        // after react
-        context.stop(self)
-      } else {
-        context.become(({
-          case y: String =>
-            // do nested task
-        }: Receive).andThen(x => {
-          unstashAll()
-          context.unbecome()
-        }).orElse { case x => stash() })
-  }
 
 5. In case `reactWithin` method is used use the following translation rule.
 
-  reactWithin(t) {
-    case TIMEOUT => // timeout code
-    case msg => // message code
-  }
+        reactWithin(t) {
+          case TIMEOUT => // timeout code
+          case msg => // message code
+        }
 
   Should be replaced with
    TODO test
-   def receive
+        def receive
 
 6. Exception handling is done in a different way in Akka. To mimic Scala actors behavior apply the following rule
-  def act() = {
-    loop {
-      react {
-        case msg =>
-          // work that can fail
-       }
-    }
-  }
-  override def exceptionHandler = {
-    case x: Exception => println("got exception")
-  }
 
-  Should be replaced with
+        def act() = {
+          loop {
+            react {
+              case msg =>
+              // work that can fail
+            }
+          }
+        }
 
-  def receive = PFCatch({
-    case msg =>
-      // work that can fail
-  }, { case x: Exception => println("got exception") })
+        override def exceptionHandler = {
+          case x: Exception => println("got exception")
+        }
 
-  TODO should we put the `PFCatch` in the migration kit
-  where `PFCatch` is defined as
+   Should be replaced with
 
-  class PFCatch(f: PartialFunction[Any, Unit], handler: PartialFunction[Exception, Unit])
-    extends PartialFunction[Any, Unit] {
+        def receive = PFCatch({
+          case msg =>
+            // work that can fail
+        }, { case x: Exception => println("got exception") })
 
-    def apply(x: Any) = {
-      try {
-        f(x)
-      } catch {
-        case e: Exception if handler.isDefinedAt(e) => handler(e)
-      }
-    }
+   where `PFCatch` is defined as
 
-    def isDefinedAt(x: Any) = f.isDefinedAt(x)
-  }
+        class PFCatch(f: PartialFunction[Any, Unit],
+          handler: PartialFunction[Exception, Unit])
+          extends PartialFunction[Any, Unit] {
 
-  object PFCatch {
-    def apply(f: PartialFunction[Any, Unit], handler: PartialFunction[Exception, Unit]) = new PFCatch(f, handler)
-  }
+          def apply(x: Any) = {
+            try {
+              f(x)
+            } catch {
+              case e: Exception if handler.isDefinedAt(e) => handler(e)
+            }
+          }
 
-  When the migration is complete fault-handling can be converted to Akka hierarchical supervision.
-7. Linking of actors TODO
+          def isDefinedAt(x: Any) = f.isDefinedAt(x)
+        }
+
+        object PFCatch {
+          def apply(f: PartialFunction[Any, Unit],
+            handler: PartialFunction[Exception, Unit]) = new PFCatch(f, handler)
+        }
+
+   `PFCatch` is not included to the migration kit as it can stay as the permanent feature and the Actor Migration Kit will be removed. 
+   When the migration is complete fault-handling can be converted to Akka hierarchical supervision.
+
+7. Linking of actors can be done only in one direction by using method TODO. Instead of catching the Scala `Exit` message 
+the code should be changed to catch the `Terminated(a: ActorRef)` message.
+  TODO test
 
 ### Phase 5 - Moving to the Akka Back-end
 
 At this point your code is ready to operate on Akka actors. Now we can switch the actual jar from Scala Actors to
 Akka actors. After this change the compilation will fail due to different package names. We will have to change each
-imported actor from scala to Akka. Other than packages all class names completely match. If there are any
-special cases, text search and replace needs to be used. The table of conversions is presented below:
+imported actor from scala to Akka. Following package names need to be changed:
+1) TODO when all other things are done add the list of rules
+    scala.actor.StashingActor -> akka.actor. { Actor, Stash }
+    scala.actor.ActorRef -> akka.actor.ActorRef
+    etc.
 
+Additionally there is a slight difference in the declaration of the `StashingActor` in Scala and Akka. All declarations of
+the `StashingActor` should be replaced with `Actor with Stash`. This transformation can be achieved by simple text search and replace.
 
 TODO Philipp: Paragraph about remoting. Here you replace Scala remote actors with akka ones.
   alive(port: Int): Unit - starts the remote service -> this done by configuration in Akka
   register(name, actor) - passing the name to the actorOf
 TODO point to the test cases.
 
-Written and implemented by: Vojin Jovanovic and Philipp Haller
+This document and the Actor Migration Kit were designed and implemented by: Vojin Jovanovic and Philipp Haller
 
-Report bugs at the [Scala Bugtracker](https://issues.scala-lang.org/ "Scala issue reporting tool").
+If you find any issues or rough edges please report bugs at the [Scala Bugtracker](https://issues.scala-lang.org/ "Scala issue reporting tool").
 During the RC release phase bugs will be fixed within several working days thus that would be the 
-best time to try the migration on your application. 
+best time to try the Actor Migration Kit on an application.
