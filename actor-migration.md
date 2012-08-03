@@ -328,6 +328,7 @@ Should be replaced with
     case x: Int =>
       // do task
       if (x == 42) {
+        // after react
         context.stop(self)
       } else {
         context.become(({
@@ -339,16 +340,59 @@ Should be replaced with
         }).orElse { case x => stash() })
   }
 
-5. reactWithin
-  reactWithin(500) {
-    case TIMEOUT =>
-    case Msg =>
+5. In case `reactWithin` method is used use the following translation rule.
+
+  reactWithin(t) {
+    case TIMEOUT => // timeout code
+    case msg => // message code
   }
 
-  // set the timeout for the Akka actor 
+  Should be replaced with
+   TODO test
+   def receive
 
-6. Exception handling TODO
+6. Exception handling is done in a different way in Akka. To mimic Scala actors behavior apply the following rule
+  def act() = {
+    loop {
+      react {
+        case msg =>
+          // work that can fail
+       }
+    }
+  }
+  override def exceptionHandler = {
+    case x: Exception => println("got exception")
+  }
 
+  Should be replaced with
+
+  def receive = PFCatch({
+    case msg =>
+      // work that can fail
+  }, { case x: Exception => println("got exception") })
+
+  TODO should we put the `PFCatch` in the migration kit
+  where `PFCatch` is defined as
+
+  class PFCatch(f: PartialFunction[Any, Unit], handler: PartialFunction[Exception, Unit])
+    extends PartialFunction[Any, Unit] {
+
+    def apply(x: Any) = {
+      try {
+        f(x)
+      } catch {
+        case e: Exception if handler.isDefinedAt(e) => handler(e)
+      }
+    }
+
+    def isDefinedAt(x: Any) = f.isDefinedAt(x)
+  }
+
+  object PFCatch {
+    def apply(f: PartialFunction[Any, Unit], handler: PartialFunction[Exception, Unit]) = new PFCatch(f, handler)
+  }
+
+  When the migration is complete fault-handling can be converted to Akka hierarchical supervision.
 7. Linking of actors TODO
 
 ### Phase 5 - Moving to the Akka Back-end
