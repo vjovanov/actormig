@@ -518,19 +518,19 @@ the list of differences and their translation:
 3. `reply(msg)` - should be replaced with `sender ! msg`
 
 4. `link(actor)` - In Akka, linking of actors is done partially by [Supervision](http://doc.akka.io/docs/akka/2.0.3/general/supervision.html#What_Supervision_Means)
-and partially by [actor monitoring](http://doc.akka.io/docs/akka/2.0.3/general/supervision.html#What_Lifecycle_Monitoring_Means). In the Actor Migration Kit we support
-only the monitoring method so the complete Scala functionality can not be migrated
+and partially by [actor monitoring](http://doc.akka.io/docs/akka/2.0.3/general/supervision.html#What_Lifecycle_Monitoring_Means). In the AMK we support
+only the monitoring method so the complete Scala functionality can not be migrated. 
 
-TODO Try to migrate the code to Akka monitoring provided in 
+   The difference between linking and watching is that watching actors always receive the termination notification.
+However, instead of matching on the Scala `Exit` message that contains the reason of termination the Akka watching 
+returns the `Terminated(a: ActorRef)` message that contains only the `ActorRef`. The functionality of getting the reason
+ for termination is not supported by the migration and can be in Akka, after the migration, by organizing the actors in a supervision hierarchy.
 
-   Actors that are watching always receive the termination notification. However, instead of matching on the Scala `Exit` message that
-contains the reason of termination the Akka watching returns the `Terminated(a: ActorRef)` message that contains only 
-the `ActorRef`. The functionality of getting the reason for termination is not supported by migration and can be done 
-in Akka by organizing the actors in a supervision hierarchy. This can be achieved after the migration is complete.
-
-   If the actor that is watching does not receive the `Terminated` message in case this message arrives it will be terminated with the `DeathPactException`.
+   If the actor that is watching does not match the `Terminated` message, and this message arrives, it will be terminated with the `DeathPactException`.
 Note that this will happen even when the watched actor terminated normally. In Scala linked actors terminate - with the same termination reason - only if
 one of the actors terminates abnormally.
+
+   If the system can not be migrated solely with watching the user has the two alternatives described in "Deciding on Migration".
 
    NOTE: There is another subtle difference between Scala and Akka actors. In Scala, `link`/`watch` to the already dead actor will not have affect.
 In Akka, watching the already dead actor will result in sending the `Terminated` message. This can give unexpected behavior in the Step 5 of the migration guide.
