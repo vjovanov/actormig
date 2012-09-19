@@ -185,28 +185,34 @@ In that scenario state of an actor is not relevant.
 
 All Scala methods need to be translated to only two methods that ex For other methods we provide the simple translation scheme:
 
-TODO (VJ) These need to be checked once migrated to Akka. Chances are that they all fail. Introduce either the implicits or wrappers for these futures.
-
 1. `!!(msg: Any): Future[Any]` gets replaced with `?`.
 
-        actor !! message -> val fut = actor ? message; fut()
+        actor !! message -> 
+          val fut = respActor.?(message)(Timeout(Duration.Inf))
+          Await.result(fut, Duration.Inf)
 
 2. `!![A] (msg: Any, handler: PartialFunction[Any, A]): Future[A]` gets replaced with `?`. The handler can be extracted as a separate
 function and then applied to the generated future result. The result of a handle should yield another future like
 in the following example:
 
         val handler: PartialFunction[Any, T] =  ... // handler
-        val fut = (respActor ? msg)
-        // TODO this is wrong. We should have the is defined etc. Find another way.
-        Futures.future{ handler.apply(fut2()) }
+        actor !! (message, handler) ->
+          val fut = (respActor.?(message)(Timeout(Duration.Inf)))
+          Await.result(fut.map(handler), Duration.Inf)
 
 3. `!? (msg: Any): Any` gets replaced with `?` and explicit blocking on the returned future.
 
-        actor !? message -> Some((respActor.?(msg2)(Duration.Inf))())
+        actor !? message ->
+          val res = respActor.?(message)(Timeout(Duration.Inf))
+          Await.result(res, Duration.Inf)
 
 4. `!? (msec: Long, msg: Any): Option[Any]` gets replaced with `?` and explicit blocking on the future.
 
-        actor !? (timeout, message) -> Some((actor.?(message)(timeout))())
+        actor !? (timeout, message) -> 
+          val res = respActor.?(message)(Timeout(timeout milliseconds))
+          val promise = Promise[Option[Any]]()
+          res.onComplete(v => promise.success(v.toOption))
+          Await.result(promise.future, Duration.Inf)
 
 Public methods that are not mentioned here are declared public for purposes of the actors DSL. They can be used only
 inside the actor definition so their migration is not relevant at this point.
@@ -542,7 +548,7 @@ Akka actors. In order to do this configure the build to exclude the `scala-actor
 TODO`akka-actor.jar`.
 
 After this change the compilation will fail due to different package names. We will have to change each imported actor 
-from scala to Akka. Following is the noexhaustive list of package names that need to be changed:
+from scala to Akka. Following is the non-exhaustive list of package names that need to be changed:
 
 1) TODO when Akka is moved in all other things are done add the list of rules
 
@@ -559,7 +565,7 @@ TODO Philipp: Paragraph about remoting.
 
 All of the code snippets presented in this document can be found in the [Scala test suite](http://github.com/scala/scala/tree/master/test/files/jvm) as test files with the prefix `actmig`.
 
-This document and the Actor Migration Kit were envisioned by XXX, and designed and implemented by: Vojin Jovanovic and Philipp Haller
+This document and the Actor Migration Kit were designed and implemented by: Vojin Jovanovic and Philipp Haller
 
 If you find any issues or rough edges please report them at the [Scala Bugtracker](https://issues.scala-lang.org/ "Scala issue reporting tool").
 During the RC release cycles bugs will be fixed within several working days thus that would be the best time to try the AMK on an application.
