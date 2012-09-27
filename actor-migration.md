@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-Starting with the Scala 2.10.0, the Scala actors will be deprecated. In Scala 2.10.0 the default
+Starting with the Scala 2.10.0, the Scala actors library will be deprecated. In Scala 2.10.0 the default
 actor library will be [Akka](http://akka.io). We deprecate Scala actors since Akka Actors have better performance,
 their programming model prevents accidental memory leaks and guides users to think about fault-handling.
 Moreover, Akka provides an uniform interface for accessing both remote and local actors.
@@ -22,7 +22,7 @@ A user of Scala actors can choose between staying with the Scala actors, and mig
  to use a fork of the Scala Actors library and maintain it in the future. This process can require a significant effort.
 
 The path that one chooses depends on the code base that needs to be migrated. Some use cases are harder to migrate than the others and thus sometimes it is easier
-to use a fork of Scala Actors. Also, some projects might not require high performance of Akka and do not have a need to move away from Scala Actors.
+to use a fork of the Scala Actors. Also, some projects might not require high performance of Akka and do not have a need to move away from Scala Actors.
 In the following list we present use cases that are harder to migrate and describe the difficulties. Users should compare their code base with these cases
 and assess weather it is better to migrate, or to make a fork of the Scala Actors.
 
@@ -40,7 +40,7 @@ the termination reason from the failed actor. This functionality can not be migr
 mechanism. Monitoring is different than linking because it is unidirectional and the termination reason is now known. If monitoring support is not enough to migrate the user code there are two possible
 workarounds:
     * One can disable the linking functionality, migrate the rest of the system to Akka, and then reintroduce linking on the Akka back-end
-    * One can make all actor failures explicit and send user defined messages for each type of filure in the actor. For example, catch errors explicitly and 
+    * One can make all actor failures explicit and send user defined messages for each type of failure in the actor. For example, catch errors explicitly and 
  notify the master about the failure by sending a message containing the type of failure.
 
 4. Usage of the `restart` method - Akka does not provide explicit restart of actors so we can not provide the smooth migration for this use-case. 
@@ -62,21 +62,21 @@ Additionally, users should be aware that concurrent code is notorious for bugs t
 Due to differences between actor implementations it is possible that errors will appear. It is recommended
 to thoroughly test the code after the migration is complete.
 
-## 3. Migration Overview
+## 2. Migration Overview
 
-### 3.1 Migration Kit
+### 2.1 Migration Kit
 In Scala 2.10.0 Scala Actors will be inside the Scala distribution as a separate jar (`scala-actors.jar`), and 
 the public interface will be deprecated. The distribution will include Akka Actors in TODO`akka-actor.jar`. 
 The AMK resides both in the Scala distribution (`scala-actors-migration.jar`) and in the TODO'akka-actor.jar'.
 Future major releases of Scala will not contain Scala actors and the AMK.
 
-To start the migration user needs to add the `scala-actors.jar` and the `scala-actors-migration.jar` to the build of their projects. 
+To start the migration, user needs to add the `scala-actors.jar` and the `scala-actors-migration.jar` to the build of their projects. 
 Addition of `scala-actors.jar` and `scala-actors-migration.jar` enables the usage of the AMK described below.
 
 ### 2.2 Migration Steps
 Actor Migration Kit should be used in 5 steps. Each step is designed to introduce minimal changes
-to the code base and, allows the user run all system tests. In the first four steps of the migration 
-the code will use Scala actors implementation. However, the methods and class signatures will be transformed to closely resembles Akka.
+to the code base and, allows the user run all system tests after it. In the first four steps of the migration 
+the code will use Scala actors implementation. However, the methods and class signatures will be transformed to closely resemble Akka.
 The migration kit on the Scala side introduces a new actor type (`StashingActor`) and enforces access to actors through the `ActorRef` interface.
 It also enforces creation of actors through the special methods on the `MigrationSystem` object. In these steps it will also be possible to migrate one
 actor at a time. This will reduce the possibility of complex errors that are caused by several bugs introduced at the same time.
@@ -183,7 +183,7 @@ In that scenario state of an actor is not relevant.
 
 2. `restart()` - standard Akka actors are restarted by default after failure. This can not be paired on the Scala side.
 
-All Scala methods need to be translated to only two methods that ex For other methods we provide the simple translation scheme:
+All other `Actor` methods need to be translated to two methods that exist on the ActorRef. The translation is achieved by the following rules:
 
 1. `!!(msg: Any): Future[Any]` gets replaced with `?`.
 
@@ -324,7 +324,7 @@ should behave exactly the same.
 
 ### Step 4 - Removing the `act` Method
 
-In this section we describe how to remove the `act` method from `StashingActors` and how to
+In this section we describe how to remove the `act` method from `StashingActor`s and how to
 change the methods used in the `StashingActor` to resemble Akka. Since this step can be complex, it is recommended 
 to do changes one actor at a time. In Scala, actor's behavior is defined by implementing the act method. Logically, an actor is a concurrent process
 which executes the body of its `act` method, and then terminates. In Akka, the behavior is defined by using a global message
@@ -334,11 +334,10 @@ which gets applied to each message.
 Since the behavior of Akka methods in the `StashingActor` depends on the removal of the `act` we have to do that first. Then we will give the translation 
 rules for translating individual methods of the Scala `Actor`.
 
-
 #### Removal of `act`
 
 In the following list we present the translation rules for common message processing patterns. This list is not 
-exhausive but it covers the essentials. However, users can migrate more complex `act` methods to Akka by looking
+exhausive and it covers only the common patterns. However, users can migrate more complex `act` methods to Akka by looking
  at existing translation rules and extending them for more complex situations.
 
 1. If there is any code in the `act` method that is being executed before the first `loop` with `react` that code
@@ -455,7 +454,7 @@ should be moved to the `preStart` method.
         }
 
    should be replaced with
-      import scala.concurrent.util.duration._
+      import scala.concurrent.duration._
 
       context.setReceiveTimeout(t millisecond)
       def receive = {
@@ -530,10 +529,10 @@ only the monitoring method so the complete Scala functionality can not be migrat
    The difference between linking and watching is that watching actors always receive the termination notification.
 However, instead of matching on the Scala `Exit` message that contains the reason of termination the Akka watching 
 returns the `Terminated(a: ActorRef)` message that contains only the `ActorRef`. The functionality of getting the reason
- for termination is not supported by the migration and can be in Akka, after the migration, by organizing the actors in a supervision hierarchy.
+ for termination is not supported by the migration. It can be done in Akka, after the Step 4, by organizing the actors in a supervision hierarchy.
 
    If the actor that is watching does not match the `Terminated` message, and this message arrives, it will be terminated with the `DeathPactException`.
-Note that this will happen even when the watched actor terminated normally. In Scala linked actors terminate - with the same termination reason - only if
+Note that this will happen even when the watched actor terminated normally. In Scala linked actors terminate, with the same termination reason, only if
 one of the actors terminates abnormally.
 
    If the system can not be migrated solely with watching the user has the two alternatives described in "Deciding on Migration".

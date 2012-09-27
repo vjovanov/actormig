@@ -1,7 +1,7 @@
 import sbt._
 
 object ScalaHome extends Build {
- val scalaHomeDir = {  
+/* val scalaHomeDir = {  
    val props = new java.util.Properties()
    IO.load(props, file(".") / "local.properties")
    val x = props.getProperty("scala.home")
@@ -10,7 +10,7 @@ object ScalaHome extends Build {
    else
      file(x)
  }
-
+*/
 
  lazy val root = Project(id = "actormig",
                             base = file("."),
