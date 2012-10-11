@@ -74,6 +74,7 @@ to thoroughly test the code after the migration is complete.
 ## 2. Migration Overview
 
 ### 2.1 Migration Kit
+
 In Scala 2.10.0 Scala Actors will be inside the Scala distribution as a separate jar (`scala-actors.jar`), and 
 the public interface will be deprecated. The distribution will include Akka Actors in TODO`akka-actor.jar`. 
 The AMK resides both in the Scala distribution (`scala-actors-migration.jar`) and in the TODO'akka-actor.jar'.
@@ -87,12 +88,12 @@ Actor Migration Kit should be used in 5 steps. Each step is designed to introduc
 to the code base and, allows the user run all system tests after it. In the first four steps of the migration 
 the code will use Scala actors implementation. However, the methods and class signatures will be transformed to closely resemble Akka.
 The migration kit on the Scala side introduces a new actor type (`StashingActor`) and enforces access to actors through the `ActorRef` interface.
-It also enforces creation of actors through the special methods on the `MigrationSystem` object. In these steps it will also be possible to migrate one
+It also enforces creation of actors through special methods on the `ActorDSL` object. In these steps it will also be possible to migrate one
 actor at a time. This will reduce the possibility of complex errors that are caused by several bugs introduced at the same time.
 
 After the migration on the Scala side is complete the user should change import statements and change 
-the library used to Akka. On the Akka side we introduce the `MigrationSystem` and the `Actor with Stash` which allow
- modeling of the Scala actors' `react` and life-cycle. This step migrates all actors to the Akka back-end and could introduce bugs in the system. Once code is migrated to Akka,
+the library used to Akka. On the Akka side, the `ActorDSL` and the `Actor with Stash` allow
+ modeling the `react` construct of Scala Actors and their life cycle. This step migrates all actors to the Akka back-end and could introduce bugs in the system. Once code is migrated to Akka,
  users will be able to use all the features of Akka.
 
 ## 3. Step by Step Guide for Migration to Akka
@@ -124,12 +125,12 @@ that information then one needs to: _i)_ apply pattern matching with explicit ty
 
 ### Step 2 - Instantiations
 
-In Akka, actors can be accessed only through the narrow interface named `ActorRef`. Instances of `ActorRef` can only be acquired
+In Akka, actors can be accessed only through the narrow interface called `ActorRef`. Instances of `ActorRef` can only be acquired
 by invoking an `actorOf(p: Props): ActorRef` method on an instance of the `ActorSystem`. The `Props` that are passed as the argument declare how to instantiate an actor.
-In the migration kit we provide a subset of the Akka `ActorRef` and the `MigrationSystem` which is an actual `ActorSystem` in the Akka library.
+In the migration kit we provide a subset of the Akka `ActorRef` and the `ActorDSL` which is an actual singleton object in the Akka library.
 
-This step of the migration makes all accesses to actors through `ActorRef`s. First, we present how to migrate common patterns for instantiating 
-Scala `Actor`s. Then we show how to overcome issues with different interfaces of `ActorRef` and `Actor`.
+This step of the migration makes all accesses to actors through `ActorRef`s. First, we show how to migrate common patterns for instantiating 
+Scala `Actor`s. Then we show how to overcome issues with the different interfaces of `ActorRef` and `Actor`, respectively.
 
 #### Actor Instantiation
 
@@ -141,41 +142,39 @@ The translation rules for actor instantiation:
 
     Should be replaced with
 
-        MigrationSystem.actorOf(Props(() =>
-          new MyActor(arg1, arg2), "akka.actor.default-stash-dispatcher"))
+        ActorDSL.actor(new MyActor(arg1, arg2))
 
 2. DSL for Creating Actors
 
         val myActor = actor { 
-           // actor definition
+          // actor definition
         }
 
     Should be replaced with
 
-        val myActor = MigrationSystem.actorOf(Props(() => new Actor {
-           def act() {
-             // actor definition
-           }
-        }, "akka.actor.default-stash-dispatcher")
+        val myActor = ActorDSL.actor(new Actor {
+          def act() {
+            // actor definition
+          }
+        })
 
 3. Object extended from the `Actor` trait
 
         object MyActor extends Actor {
-           // MyActor definition
+          // MyActor definition
         }
 
     Should be replaced with
 
         object MyActor {
-          val ref = MigrationSystem.actorOf(Props(() =>
-            new MyActor, "akka.actor.default-stash-dispatcher"))
+          val ref = ActorDSL.actor(new MyActor)
         }
 
         class MyActor extends Actor {
           // same MyActor definition
         }
 
-   All accesses to the object `MyActor` should be replaced with accesses to the `MyActor.ref`.
+   All accesses to the object `MyActor` should be replaced with accesses to `MyActor.ref`.
 
 Note that Akka actors are always started on instantiation. Therefore, the above translation will change the system so all the actors start right after construction.
 In case actors in the user system are created and started at different locations, and changing this can affect the behavior of the system, 
