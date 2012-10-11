@@ -2,19 +2,28 @@
 
 ## 1. Introduction
 
-Starting with the Scala 2.10.0, the Scala actors library will be deprecated. In Scala 2.10.0 the default
-actor library will be [Akka](http://akka.io). We deprecate Scala actors since Akka Actors have better performance,
-their programming model prevents accidental memory leaks and guides users to think about fault-handling.
-Moreover, Akka provides an uniform interface for accessing both remote and local actors.
+Starting with Scala 2.10.0, the Scala
+[Actors](http://docs.scala-lang.org/overviews/core/actors.html)
+library is deprecated. In Scala 2.10.0 the default actor library is
+[Akka](http://akka.io).
 
-To ease the difficulties of migrating from Scala Actors to Akka we have provided the Actor Migration Kit (AMK). AMK consists of the code
- in Scala, in Akka, and this document. The purpose of the document is to guide users through the migration process and explain
-how to use the AMK.
+To ease the migration from Scala Actors to Akka we are providing the
+Actor Migration Kit (AMK). The AMK consists of an extension to Scala
+Actors which is enabled by including the `scala-actors-migration.jar`
+on a project's classpath. In addition, Akka 2.1 includes features,
+such as the `ActorDSL` singleton, which enable a simpler conversion of
+code using Scala Actors to Akka. The purpose of this document is to
+guide users through the migration process and explain how to use the
+AMK.
 
-The document is structured as follows. In Section "Deciding on Migration" we will discuss the possibilities that a user of Scala Actors has,
- and we will point out which cases can be hard to migrate. In Section "Migration Overview" we will describe the migration process and talk about
-changes in the Scala distribution that make the migration possible. Finally, in section "Step by Step Guide for Migration to Akka" we show individual steps,
- with working examples, that user should take to migrate to Akka.
+This guide has the following structure. In Section "Deciding on
+Migration" we discuss the possibilities that a user of Scala Actors
+has, and we point out which cases can be hard to migrate. In Section
+"Migration Overview" we describe the migration process and talk about
+changes in the Scala distribution that make the migration
+possible. Finally, in Section "Step by Step Guide for Migration to
+Akka" we show individual steps, with working examples, that are
+recommended when migrating from Scala Actors to Akka's actors.
 
 ## 2. Deciding on Migration
 
