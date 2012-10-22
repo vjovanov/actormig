@@ -66,8 +66,8 @@ to thoroughly test the code after the migration is complete.
 
 ### 2.1 Migration Kit
 In Scala 2.10.0 Scala Actors will be inside the Scala distribution as a separate jar (`scala-actors.jar`), and 
-the public interface will be deprecated. The distribution will include Akka Actors in TODO`akka-actor.jar`. 
-The AMK resides both in the Scala distribution (`scala-actors-migration.jar`) and in the TODO'akka-actor.jar'.
+the public interface will be deprecated. The distribution will include Akka Actors in `akka-actor.jar`. 
+The AMK resides both in the Scala distribution (`scala-actors-migration.jar`) and in the 'akka-actor.jar'.
 Future major releases of Scala will not contain Scala actors and the AMK.
 
 To start the migration, user needs to add the `scala-actors.jar` and the `scala-actors-migration.jar` to the build of their projects. 
@@ -543,8 +543,7 @@ In Akka, watching the already dead actor will result in sending the `Terminated`
 ### Step 5 - Moving to the Akka Back-end
 
 At this point user code is ready to operate on Akka actors. Now we can switch the actors library from Scala to
-Akka actors. In order to do this configure the build to exclude the `scala-actors.jar` and the `scala-actors-migration.jar` and add the
-TODO`akka-actor.jar`.
+Akka actors. In order to do this configure the build to exclude the `scala-actors.jar` and the `scala-actors-migration.jar` and add the `akka-actor.jar`. The AMK is built to work only with Akka actors version 2.1 which are included in the Scala distribution and can be configured by these [instructions](http://doc.akka.io/docs/akka/current/intro/getting-started.html#Using_a_build_tool).
 
 After this change the compilation will fail due to different package names. We will have to change each imported actor 
 from scala to Akka. Following is the non-exhaustive list of package names that need to be changed:

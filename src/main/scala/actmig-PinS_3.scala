@@ -1,20 +1,31 @@
-import akka.actor.{ MigrationSystem, Actor, Stash, Terminated, Props, ActorRef }
+/**
+ * NOTE: Code snippets from this test are included in the Actor Migration Guide. In case you change
+ * code in these tests prior to the 2.10.0 release please send the notification to @vjovanov.
+ */
+import akka.actor._
+import scala.concurrent.duration._
+import scala.concurrent.{ Promise, Await }
+
+// address the factory 
+// stash method is not working
+object AS {
+ val s = new ActorSystem("Test System")
+}
 
 object SillyActor {
-  val ref = MigrationSystem.actorOf(Props(() => new SillyActor, "akka.actor.default-stash-dispatcher"))
+  val startPromise = Promise[Boolean]()
+  val ref = ActorDSL.actor(new SillyActor)
 }
 
 /* PinS, Listing 32.1: A simple actor
  */
-
 class SillyActor extends Actor with Stash {
   def receive = { case _ => println("Why are you not dead"); context.stop(self) }
 
   override def preStart() {
-    for (i <- 1 to 5) {
+    Await.ready(SillyActor.startPromise.future, 5 seconds)
+    for (i <- 1 to 5)
       println("I'm acting!")
-      Thread.sleep(10)
-    }
     context.stop(self)
   }
 
@@ -24,17 +35,16 @@ class SillyActor extends Actor with Stash {
 }
 
 object SeriousActor {
-  val ref = MigrationSystem.actorOf(Props(() => new SeriousActor, "akka.actor.default-stash-dispatcher"))
+  val startPromise = Promise[Boolean]()
+  val ref = ActorDSL.actor(new SeriousActor)
 }
 
 class SeriousActor extends Actor with Stash {
   def receive = { case _ => println("Nop") }
   override def preStart() {
-    for (i <- 1 to 5) {
+    Await.ready(SeriousActor.startPromise.future, 5 seconds)
+    for (i <- 1 to 5)
       println("To be or not to be.")
-      //Thread.sleep(1000)
-      Thread.sleep(10)
-    }
     context.stop(self)
   }
 }
@@ -42,10 +52,9 @@ class SeriousActor extends Actor with Stash {
 /* PinS, Listing 32.3: An actor that calls react
  */
 object NameResolver {
-  val ref = MigrationSystem.actorOf(Props(() => new NameResolver, "akka.actor.default-stash-dispatcher"))
+  val ref = ActorDSL.actor(new NameResolver)
 }
 
-// TODO Mention recursion
 class NameResolver extends Actor with Stash {
   import java.net.{ InetAddress, UnknownHostException }
 
@@ -73,7 +82,7 @@ object Test extends App {
 
   /* PinS, Listing 32.2: An actor that calls receive
    */
-  def makeEchoActor(): ActorRef = MigrationSystem.actorOf(Props(() => new Actor with Stash {
+  def makeEchoActor(): ActorRef = ActorDSL.actor(new Actor with Stash {
 
     def receive = { // how to handle receive
       case 'stop =>
@@ -81,28 +90,27 @@ object Test extends App {
       case msg =>
         println("received message: " + msg)
     }
-  }, "akka.actor.default-stash-dispatcher"))
+  })
 
   /* PinS, page 696
    */
-  def makeIntActor(): ActorRef = MigrationSystem.actorOf(Props(() => new Actor with Stash {
+  def makeIntActor(): ActorRef = ActorDSL.actor(new Actor with Stash {
 
-    def receive = {
+    def receive: scala.runtime.AbstractPartialFunction[Any,Unit] = {
       case x: Int => // I only want Ints
         unstashAll()
         println("Got an Int: " + x)
         context.stop(self)
-      case m => stash()
+      case _ => stash()
     }
-  }, "akka.actor.default-stash-dispatcher"))
+  })
 
-  // TODO test the name resolver with pattern matching
-  MigrationSystem.actorOf(Props(() => new Actor with Stash {
+  ActorDSL.actor(new Actor with Stash {
     val silly = SillyActor.ref
 
-    // TODO remove trap exit totally 
     override def preStart() {
       context.watch(SillyActor.ref)
+      SillyActor.startPromise.success(true)
     }
 
     def receive = {
@@ -110,32 +118,30 @@ object Test extends App {
         unstashAll()
         val serious = SeriousActor.ref
         context.watch(SeriousActor.ref)
+        SeriousActor.startPromise.success(true)
         context.become {
           case Terminated(`serious`) =>
+            val seriousPromise2 = Promise[Boolean]()
             // PinS, page 694
-            val seriousActor2 = MigrationSystem.actorOf(Props(() => {
+            val seriousActor2 = ActorDSL.actor(
               new Actor with Stash {
 
                 def receive = { case _ => context.stop(self) }
 
                 override def preStart() = {
-                  for (i <- 1 to 5) {
+                  for (i <- 1 to 5)
                     println("That is the question.")
-                    //Thread.sleep(1000)
-                    Thread.sleep(10)
-                  }
+                  seriousPromise2.success(true)
                   context.stop(self)
                 }
-              }
-            }, "akka.actor.default-stash-dispatcher"))
+              })
 
-            Thread.sleep(80)
+            Await.ready(seriousPromise2.future, 5 seconds)
             val echoActor = makeEchoActor()
             context.watch(echoActor)
             echoActor ! "hi there"
             echoActor ! 15
             echoActor ! 'stop
-            // TODO write a wrapper for automatic unstashing and exception handling
             context.become {
               case Terminated(_) =>
                 unstashAll()
@@ -159,9 +165,5 @@ object Test extends App {
         println("Stash 3 " + m)
         stash()
     }
-  }, "akka.actor.default-stash-dispatcher"))
-
-  Thread.sleep(1000)
-  MigrationSystem.shutdown()
+  })
 }
-
