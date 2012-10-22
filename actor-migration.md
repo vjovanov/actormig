@@ -543,20 +543,53 @@ In Akka, watching the already dead actor will result in sending the `Terminated`
 ### Step 5 - Moving to the Akka Back-end
 
 At this point user code is ready to operate on Akka actors. Now we can switch the actors library from Scala to
-Akka actors. In order to do this configure the build to exclude the `scala-actors.jar` and the `scala-actors-migration.jar` and add the `akka-actor.jar`. The AMK is built to work only with Akka actors version 2.1 which are included in the Scala distribution and can be configured by these [instructions](http://doc.akka.io/docs/akka/current/intro/getting-started.html#Using_a_build_tool).
+Akka actors. In order to do this configure the build to exclude the `scala-actors.jar` and the `scala-actors-migration.jar`
+ and add the `akka-actor.jar`. The AMK is built to work only with Akka actors version 2.1 which are included in the Scala distribution
+  and can be configured by these [instructions](http://doc.akka.io/docs/akka/current/intro/getting-started.html#Using_a_build_tool).
 
-After this change the compilation will fail due to different package names. We will have to change each imported actor 
+After this change the compilation will fail due to different package names and some . We will have to change each imported actor 
 from scala to Akka. Following is the non-exhaustive list of package names that need to be changed:
+  * scala.actors._ -> akka.actor._
+  * scala.actors.migration.StashingActor -> akka.actor.ActorDSL.ActWithStash
+  * scala.actors.migration.pattern.ask -> akka.pattern.ask
+  * scala.actors.migration.Timeout -> akka.util.Timeout
 
-1) TODO when Akka is moved in all other things are done add the list of rules
+Then there is a slight difference in the declaration of the `StashingActor` in Scala and Akka. All declarations of
+the `StashingActor` should be replaced with `ActWithStash`. This transformation can be achieved by simple text search and replace. 
+Also, method declarations `def receive =` in `ActWithStash` should be prepended with override.
 
-         scala.actor.StashingActor -> akka.actor. { Actor, Stash }
-         scala.actor.ActorRef -> akka.actor.ActorRef
-         etc.
+In the Scala actors the `stash` method needs a message as a parameter. For example:
 
-Additionally there is a slight difference in the declaration of the `StashingActor` in Scala and Akka. All declarations of
-the `StashingActor` should be replaced with `Actor with Stash`. This transformation can be achieved by simple text search and replace.
+    def receive = {
+      ...
+      case x => stash(x)
+    }
 
+In Akka only the currently processed message can be stashed. Therefore replace the above example with:
+
+    def receive = {
+      ...
+      case x => stash(x)
+    }
+
+#### Adding Actor Systems
+
+The Akka actors are organized in [Actor systems](http://doc.akka.io/docs/akka/2.1/general/actor-systems.html). Each actor that is instantiated
+must belong to one `ActorSystem`. To achieve this add an `ActorSystem` instance to each actor instatiation call as a first argument. The following example 
+shows the transformation.
+
+To achieve this transformation you need to have an actor system instantiated:
+
+    val migrationSystem = ActorSystem("migration-system")
+
+Then apply the following transformation:
+
+    ActorDSL.actor(...) -> ActorDSL.actor(migrationSystem)(...)
+
+Finally, Scala actors programs are terminating when the last non-daemon actor finishes. With Akka the program ends when all Actor Systems are shut down. You will need to explicitly 
+terminate all the actor systems before the program can exit. This is achieved by invoking the `shutdown` method on an Actor system.
+
+#### Remote Actors
 TODO Philipp: Paragraph about remoting.
   alive(port: Int): Unit - starts the remote service -> this done by configuration in Akka
   register(name, actor) - passing the name to the actorOf

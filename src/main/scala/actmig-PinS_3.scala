@@ -8,12 +8,6 @@ import scala.concurrent.duration._
 import scala.concurrent.{ Promise, Await }
 import scala.concurrent.ExecutionContext.Implicits.global
 
-// address the factory that needs to be passed
-// Stash method is not working
-// override of receive
-// the ActWithStash
-// ActorSystem must be stopped
-
 object AS {
  val s = ActorSystem("migration-system")
 }
