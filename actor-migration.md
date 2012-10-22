@@ -187,8 +187,8 @@ All other `Actor` methods need to be translated to two methods that exist on the
 
 1. `!!(msg: Any): Future[Any]` gets replaced with `?`.
 
-        actor !! message -> 
-          val fut = respActor.?(message)(Timeout(Duration.Inf))
+        actor !! message ->
+          val fut = respActor.?(message)(Timeout((100 * 365) days))
           Await.result(fut, Duration.Inf)
 
 2. `!![A] (msg: Any, handler: PartialFunction[Any, A]): Future[A]` gets replaced with `?`. The handler can be extracted as a separate
@@ -197,18 +197,18 @@ in the following example:
 
         val handler: PartialFunction[Any, T] =  ... // handler
         actor !! (message, handler) ->
-          val fut = (respActor.?(message)(Timeout(Duration.Inf)))
+          val fut = (respActor.?(message)(Timeout((100 * 365) days)))
           Await.result(fut.map(handler), Duration.Inf)
 
 3. `!? (msg: Any): Any` gets replaced with `?` and explicit blocking on the returned future.
 
         actor !? message ->
-          val res = respActor.?(message)(Timeout(Duration.Inf))
+          val res = respActor.?(message)(Timeout((100 * 365) days))
           Await.result(res, Duration.Inf)
 
 4. `!? (msec: Long, msg: Any): Option[Any]` gets replaced with `?` and explicit blocking on the future.
 
-        actor !? (timeout, message) -> 
+        actor !? (timeout, message) ->
           val res = respActor.?(message)(Timeout(timeout milliseconds))
           val promise = Promise[Option[Any]]()
           res.onComplete(v => promise.success(v.toOption))
@@ -440,7 +440,7 @@ should be moved to the `preStart` method.
               }: Receive).andThen(x => {
                 unstashAll()
                 context.unbecome()
-             }).orElse { case x => stash() })
+             }).orElse { case x => stash(x) })
             }
         }
 
