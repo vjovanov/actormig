@@ -8,8 +8,8 @@ their programming model prevents accidental memory leaks, provides an uniform in
 and guides users to think about fault-handling.
 
 To ease the difficulties of migrating from Scala actors to Akka we have provided the Actor Migration Kit (AMK). AMK consists of the code
- in the [Scala distribution](http://www.scala-lang.org/downloads), in Akka, and this document. The purpose of the document is to guide users through the migration process and explain
-how to use the AMK.
+ in the [Scala distribution](http://www.scala-lang.org/downloads), in [Akka](http://akka.io), and this document. The purpose of the document
+  is to guide users through the migration process and explain how to use the AMK.
 
 The document has the following structure. In Section "Deciding on Migration" we will discuss the possibilities that a user of Scala actors has,
  and we will point out which cases can be hard to migrate. In Section "Migration Overview" we will describe the migration process and talk about
@@ -36,12 +36,10 @@ message processing partial function. Simple examples are presented in Step 4.
 3. Relying on termination reason and bidirectional behavior with `link` method - Scala and Akka actors have different fault-handling and actor monitoring models.
 In Scala linked actors terminate if one of the linked parties terminates abnormally. If termination is tracked explicitly (by `self.trapExit`) the actor receives
 the termination reason from the failed actor. This functionality can not be migrated to Akka with the AMK. The AMK allows migration only for the 
-[Akka monitoring](http://doc.akka.io/docs/akka/2.0.3/general/supervision.html#What_Lifecycle_Monitoring_Means)
+[Akka monitoring](http://doc.akka.io/docs/akka/2.1.0-RC1/general/supervision.html#What_Lifecycle_Monitoring_Means)
 mechanism. Monitoring is different than linking because it is unidirectional and the termination reason is now known. If monitoring support is not enough to migrate
  the user code there are two possible workarounds:
-
-    * Postpone the migration of linking to the last possible moment (Step 4). Then when moving to Akka create an actor hierarchy that will handle faults.
-
+    * Postpone the migration of linking to the last possible moment (Step 4). Then when moving to Akka create an [supervision hierarchy](http://doc.akka.io/docs/akka/2.1.0-RC1/general/supervision.html) that will handle faults.
     * Make all actor failures explicit and send user defined messages for each type of failure in the actor. For example, in the master-slave configuration, 
     slave catches errors explicitly and notifies the master about the failure by sending a message containing the type of failure.
 
@@ -69,13 +67,14 @@ Forking and maintaining the fork of Scala actors can require significant effort 
 ## 3. Migration Overview
 
 ### 3.1 Migration Kit
-Starting with version 2.10.0 Scala actors reside inside the [Scala distribution](http://www.scala-lang.org/downloads) as a separate jar (*scala-actors.jar*), and 
+Starting with version 2.10.0 Scala actors reside inside the [Scala distribution](http://www.scala-lang.org/downloads) as a separate jar ( *scala-actors.jar* ), and 
 the their interface is deprecated. The distribution also includes Akka actors in the *akka-actor.jar*. 
 The AMK resides both in the Scala actors and in the *akka-actor.jar*. Future major releases of Scala will not contain Scala actors and the AMK.
 
 To start the migration user needs to add the *scala-actors.jar* and the *scala-actors-migration.jar* to the build of their projects. 
 Addition of *scala-actors.jar* and *scala-actors-migration.jar* enables the usage of the AMK described below.
- These artifacts reside in the [Scala Tools repository](https://oss.sonatype.org/content/groups/scala-tools/org/scala-lang/) and in the [Scala distribution](http://www.scala-lang.org/downloads).
+ These artifacts reside in the [Scala Tools](https://oss.sonatype.org/content/groups/scala-tools/org/scala-lang/) 
+ repository and in the [Scala distribution](http://www.scala-lang.org/downloads).
 
 ### 3.2 Step by Step Migration
 Actor Migration Kit should be used in 5 steps. Each step is designed to introduce minimal changes
@@ -129,7 +128,7 @@ Scala `Actor`s. Then we show how to overcome issues with different interfaces of
 
 #### Actor Instantiation
 
-The translation rules for actor instantiation:
+The translation rules for actor instantiation (the following rules require importing `scala.actors.migration._`):
 
 1. Constructor Call Instantiation
 
@@ -154,7 +153,7 @@ The translation rules for actor instantiation:
            }
         })
 
-3. Object extended from the `Actor` trait
+3. Object Extended from the `Actor` Trait
 
         object MyActor extends Actor {
            // MyActor definition
@@ -196,7 +195,7 @@ Note that all the rules require the following imports:
     import scala.actors.migration._
     import scala.concurrent._
 
-1. `!!(msg: Any): Future[Any]` gets replaced with `?`.
+1. `!!(msg: Any): Future[Any]` gets replaced with `?`:
 
         actor !! message ->
           val fut = respActor.?(message)(Timeout((100 * 365) days))
@@ -211,13 +210,13 @@ in the following example:
           val fut = (respActor.?(message)(Timeout((100 * 365) days)))
           Await.result(fut.map(handler), Duration.Inf)
 
-3. `!? (msg: Any): Any` gets replaced with `?` and explicit blocking on the returned future.
+3. `!? (msg: Any): Any` gets replaced with `?` and explicit blocking on the returned future:
 
         actor !? message ->
           val res = respActor.?(message)(Timeout((100 * 365) days))
           Await.result(res, Duration.Inf)
 
-4. `!? (msec: Long, msg: Any): Option[Any]` gets replaced with `?` and explicit blocking on the future.
+4. `!? (msec: Long, msg: Any): Option[Any]` gets replaced with `?` and explicit blocking on the future:
 
         actor !? (timeout, message) ->
           val res = respActor.?(message)(Timeout(timeout milliseconds))
@@ -465,6 +464,7 @@ should be moved to the `preStart` method.
         }
 
    should be replaced with
+
       import scala.concurrent.duration._
 
       context.setReceiveTimeout(t millisecond)
@@ -521,7 +521,7 @@ should be moved to the `preStart` method.
 
    `PFCatch` is not included in the AMK as it can stay as the permanent feature in the migrated code
    and the AMK will be removed with the next major release. Once the whole migration is complete fault-handling
-    can also be converted to the Akka [supervision](http://doc.akka.io/docs/akka/2.1.0/general/supervision.html#What_Supervision_Means).
+    can also be converted to the Akka [supervision](http://doc.akka.io/docs/akka/2.1.0-RC1/general/supervision.html#What_Supervision_Means).
 
 
 
@@ -536,14 +536,14 @@ the list of differences and their translation:
 
 3. `reply(msg)` - should be replaced with `sender ! msg`
 
-4. `link(actor)` - In Akka, linking of actors is done partially by [supervision](http://doc.akka.io/docs/akka/2.1.0/general/supervision.html#What_Supervision_Means)
-and partially by [actor monitoring](http://doc.akka.io/docs/akka/2.1.0/general/supervision.html#What_Lifecycle_Monitoring_Means). In the AMK we support
+4. `link(actor)` - In Akka, linking of actors is done partially by [supervision](http://doc.akka.io/docs/akka/2.1.0-RC1/general/supervision.html#What_Supervision_Means)
+and partially by [actor monitoring](http://doc.akka.io/docs/akka/2.1.0-RC1/general/supervision.html#What_Lifecycle_Monitoring_Means). In the AMK we support
 only the monitoring method so the complete Scala functionality can not be migrated.
 
    The difference between linking and watching is that watching actors always receive the termination notification.
 However, instead of matching on the Scala `Exit` message that contains the reason of termination the Akka watching 
 returns the `Terminated(a: ActorRef)` message that contains only the `ActorRef`. The functionality of getting the reason
- for termination is not supported by the migration. It can be done in Akka, after the Step 4, by organizing the actors in a supervision hierarchy.
+ for termination is not supported by the migration. It can be done in Akka, after the Step 4, by organizing the actors in a [supervision hierarchy](http://doc.akka.io/docs/akka/2.1.0-RC1/general/supervision.html).
 
    If the actor that is watching does not match the `Terminated` message, and this message arrives, it will be terminated with the `DeathPactException`.
 Note that this will happen even when the watched actor terminated normally. In Scala linked actors terminate, with the same termination reason, only if
@@ -559,15 +559,16 @@ In Akka, watching the already dead actor will result in sending the `Terminated`
 At this point user code is ready to operate on Akka actors. Now we can switch the actors library from Scala to
 Akka actors. In order to do this configure the build to exclude the `scala-actors.jar` and the `scala-actors-migration.jar`
  and add the *akka-actor.jar*. The AMK is built to work only with Akka actors version 2.1 which are included in the [Scala distribution](http://www.scala-lang.org/downloads)
-  and can be configured by these [instructions](http://doc.akka.io/docs/akka/current/intro/getting-started.html#Using_a_build_tool). During
+  and can be configured by these [instructions](http://doc.akka.io/docs/akka/2.1.0-RC1/intro/getting-started.html#Using_a_build_tool). During
   the RC phase the Akka RC number should match the Scala one (e.g. Scala 2.10.0-RC2 runs with Akka 2.1-RC2).
 
 After this change the compilation will fail due to different package names and some . We will have to change each imported actor 
 from scala to Akka. Following is the non-exhaustive list of package names that need to be changed:
-    * `scala.actors._` -> `akka.actor._`
-    * `scala.actors.migration.StashingActor` -> `akka.actor.ActorDSL.ActWithStash`
-    * `scala.actors.migration.pattern.ask` -> `akka.pattern.ask`
-    * `scala.actors.migration.Timeout` -> `akka.util.Timeout`
+
+    scala.actors._ -> akka.actor._
+    scala.actors.migration.StashingActor -> akka.actor.ActorDSL.ActWithStash`
+    scala.actors.migration.pattern.ask -> akka.pattern.ask`
+    scala.actors.migration.Timeout -> akka.util.Timeout`
 
 Then there is a slight difference in the declaration of the `StashingActor` in Scala and Akka. All declarations of
 the `StashingActor` should be replaced with `ActWithStash`. This transformation can be achieved by simple text search and replace. 
@@ -589,7 +590,7 @@ In Akka only the currently processed message can be stashed. Therefore replace t
 
 #### Adding Actor Systems
 
-The Akka actors are organized in [Actor systems](http://doc.akka.io/docs/akka/2.1/general/actor-systems.html). Each actor that is instantiated
+The Akka actors are organized in [Actor systems](http://doc.akka.io/docs/akka/2.1.0-RC1/general/actor-systems.html). Each actor that is instantiated
 must belong to one `ActorSystem`. To achieve this add an `ActorSystem` instance to each actor instatiation call as a first argument. The following example 
 shows the transformation.
 
