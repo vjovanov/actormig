@@ -120,7 +120,7 @@ that information then one needs to: _i)_ apply pattern matching with explicit ty
 ### Step 2 - Instantiations
 
 In Akka, actors can be accessed only through the narrow interface named `ActorRef`. Instances of `ActorRef` can be acquired either 
-by invoking an `actor` method on the `ActorDSL` object or through the `actorOf` method on an `ActorSystem` instance.
+by invoking an `actor` method on the `ActorDSL` object or through the `actorOf` method on an instance of the `ActorSystem` class.
 In the Scala side of AMK we provide a subset of the Akka `ActorRef` and the `ActorDSL` that enables us mimic the Akka functionality.
 
 This step of the migration makes all accesses to actors through `ActorRef`s. First, we present how to migrate common patterns for instantiating 
@@ -465,13 +465,13 @@ should be moved to the `preStart` method.
 
    should be replaced with
 
-      import scala.concurrent.duration._
+        import scala.concurrent.duration._
 
-      context.setReceiveTimeout(t millisecond)
-      def receive = {
-        case ReceiveTimeout => // timeout processing code
-        case msg => // message processing code
-      }
+        context.setReceiveTimeout(t millisecond)
+        def receive = {
+          case ReceiveTimeout => // timeout processing code
+          case msg => // message processing code
+        }
 
 6. Exception handling is done in a different way in Akka. To mimic Scala actors behavior apply the following rule
 
@@ -566,9 +566,10 @@ After this change the compilation will fail due to different package names and s
 from scala to Akka. Following is the non-exhaustive list of package names that need to be changed:
 
     scala.actors._ -> akka.actor._
-    scala.actors.migration.StashingActor -> akka.actor.ActorDSL.ActWithStash`
-    scala.actors.migration.pattern.ask -> akka.pattern.ask`
-    scala.actors.migration.Timeout -> akka.util.Timeout`
+    scala.actors.migration.StashingActor -> 
+      akka.actor.ActorDSL.ActWithStash
+    scala.actors.migration.pattern.ask -> akka.pattern.ask
+    scala.actors.migration.Timeout -> akka.util.Timeout
 
 Then there is a slight difference in the declaration of the `StashingActor` in Scala and Akka. All declarations of
 the `StashingActor` should be replaced with `ActWithStash`. This transformation can be achieved by simple text search and replace. 
@@ -612,7 +613,7 @@ TODO Philipp: Paragraph about remoting.
 
 All of the code snippets presented in this document can be found in the [Scala test suite](http://github.com/scala/scala/tree/master/test/files/jvm) as test files with the prefix `actmig`.
 
-This document and the Actor Migration Kit were designed and implemented by: Vojin Jovanovic and Philipp Haller
+This document and the Actor Migration Kit were designed and implemented by: [Vojin Jovanovic](http://people.epfl.ch/vojin.jovanovic) and [Philipp Haller](http://lampwww.epfl.ch/~phaller/)
 
 If you find any issues or rough edges please report them at the [Scala Bugtracker](https://issues.scala-lang.org/ "Scala issue reporting tool").
 During the RC release cycles bugs will be fixed within several working days thus that would be the best time to try the AMK on an application.
