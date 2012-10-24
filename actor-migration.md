@@ -92,7 +92,7 @@ Actor Migration Kit should be used in 5 steps. Each step is designed to introduc
 to the code base and allows users to run all system tests after it. In the first four steps of the migration 
 the code will use the Scala actors implementation. However, the methods and class signatures will be transformed to closely resemble Akka.
 The migration kit on the Scala side introduces a new actor type (`StashingActor`) and enforces access to actors through the `ActorRef` interface.
-<<<<<<< HEAD
+
 It also enforces creation of actors through special methods on the `ActorDSL` object. In these steps it will be possible to migrate one
 actor at a time. This reduces the possibility of complex errors that are caused by several bugs introduced at the same time.
 
