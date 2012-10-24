@@ -2,25 +2,36 @@
 
 ## 1. Introduction
 
-Starting with the Scala 2.10.0, the Scala actors library is being deprecated. In Scala 2.10.0 the default
-actor library will be [Akka](http://akka.io) actors. The Scala actors are being deprecated because Akka actors have better performance,
-their programming model prevents accidental memory leaks, provides an uniform interface for accessing both remote and local actors, 
-and guides users to think about fault-handling.
+Starting with Scala 2.10.0, the Scala
+[Actors](http://docs.scala-lang.org/overviews/core/actors.html)
+library is deprecated. In Scala 2.10.0 the default actor library is
+[Akka](http://akka.io).
 
-To ease the difficulties of migrating from Scala actors to Akka we have provided the Actor Migration Kit (AMK). AMK consists of the code
- in the [Scala distribution](http://www.scala-lang.org/downloads), in [Akka](http://akka.io), and this document. The purpose of the document
-  is to guide users through the migration process and explain how to use the AMK.
+To ease the migration from Scala Actors to Akka we are providing the
+Actor Migration Kit (AMK). The AMK consists of an extension to Scala
+Actors which is enabled by including the `scala-actors-migration.jar`
+on a project's classpath. In addition, Akka 2.1 includes features,
+such as the `ActorDSL` singleton, which enable a simpler conversion of
+code using Scala Actors to Akka. The purpose of this document is to
+guide users through the migration process and explain how to use the
+AMK.
 
-The document has the following structure. In Section "Deciding on Migration" we will discuss the possibilities that a user of Scala actors has,
- and we will point out which cases can be hard to migrate. In Section "Migration Overview" we will describe the migration process and talk about
-changes in the [Scala distribution](http://www.scala-lang.org/downloads) that make the migration possible. Finally, in section "Step by Step Guide for Migration to Akka" we show individual steps,
- with working examples, that user should take to migrate to Akka.
+This guide has the following structure. In Section "Deciding on
+Migration" we discuss the possibilities that a user of Scala Actors
+has, and we point out which cases can be hard to migrate. In Section
+"Migration Overview" we describe the migration process and talk about
+changes in the [Scala distribution](http://www.scala-lang.org/downloads)
+that make the migration possible. Finally, in Section "Step by Step Guide
+ for Migration to Akka" we show individual steps, with working examples,
+ that are recommended when migrating from Scala Actors to Akka's actors.
 
 ## 2. Deciding on Migration
 
-A user of Scala actors can choose between staying with the Scala actors, and migrating to Akka. The decision depends on the code base that needs to be migrated.
- Some use cases are harder to migrate than the others. Also, some projects might not require high performance of Akka and do not have a need to move away from
- Scala actors.
+A user of Scala actors can choose between staying with the Scala actors, and
+migrating to Akka. The decision depends on the code base that needs to be
+migrated. Some use cases are harder to migrate than the others. Also, some
+projects might not require high performance of Akka and do not have a need to
+move away from Scala actors.
 
 In the following list we present use cases that are harder to migrate and describe what are the difficulties. Users should compare their code base with these cases
 and assess weather it is better to migrate, or to stay with the Scala actors.
@@ -67,7 +78,7 @@ Forking and maintaining the fork of Scala actors can require significant effort 
 ## 3. Migration Overview
 
 ### 3.1 Migration Kit
-Starting with version 2.10.0 Scala actors reside inside the [Scala distribution](http://www.scala-lang.org/downloads) as a separate jar ( *scala-actors.jar* ), and 
+In Scala 2.10.0 tactors reside inside the [Scala distribution](http://www.scala-lang.org/downloads) as a separate jar ( *scala-actors.jar* ), and 
 the their interface is deprecated. The distribution also includes Akka actors in the *akka-actor.jar*. 
 The AMK resides both in the Scala actors and in the *akka-actor.jar*. Future major releases of Scala will not contain Scala actors and the AMK.
 
@@ -81,16 +92,15 @@ Actor Migration Kit should be used in 5 steps. Each step is designed to introduc
 to the code base and allows users to run all system tests after it. In the first four steps of the migration 
 the code will use the Scala actors implementation. However, the methods and class signatures will be transformed to closely resemble Akka.
 The migration kit on the Scala side introduces a new actor type (`StashingActor`) and enforces access to actors through the `ActorRef` interface.
-Additionally, it enforces creation of actors through the special methods on the `ActorDSL` object. In these steps it will also be possible to migrate one
-actor at a time. This will reduce the possibility of complex errors that are caused by several bugs introduced at the same time.
+<<<<<<< HEAD
+It also enforces creation of actors through special methods on the `ActorDSL` object. In these steps it will be possible to migrate one
+actor at a time. This reduces the possibility of complex errors that are caused by several bugs introduced at the same time.
 
 After the migration on the Scala side is complete the user should change import statements and change 
-the library used to Akka. On the Akka side we introduce the `ActorDSL` and the `ActWithStash` which allow
- modeling of the Scala actors' `react` and life-cycle. This step migrates all actors to the Akka back-end 
- and could introduce bugs in the system. Once code is migrated to Akka,
- users will be able to use all the features of Akka.
+the library used to Akka. On the Akka side, the `ActorDSL` and the `ActWithStash` allow
+ modeling the `react` construct of Scala Actors and their life cycle. This step migrates all actors to the Akka back-end and could introduce bugs in the system. Once code is migrated to Akka, users will be able to use all the features of Akka.
 
-## 3. Step by Step Guide for Migration to Akka
+## 4. Step by Step Guide for Migration to Akka
 
 In this chapter we will go through 5 steps of the actor migration. After each step the code can be tested for possible errors. In the first 4
  steps one can migrate one actor at a time and test the functionality. However, the last step migrates all actors to Akka and it can be tested
@@ -119,12 +129,12 @@ that information then one needs to: _i)_ apply pattern matching with explicit ty
 
 ### Step 2 - Instantiations
 
-In Akka, actors can be accessed only through the narrow interface named `ActorRef`. Instances of `ActorRef` can be acquired either 
+In Akka, actors can be accessed only through the narrow interface called `ActorRef`. Instances of `ActorRef` can be acquired either 
 by invoking an `actor` method on the `ActorDSL` object or through the `actorOf` method on an instance of the `ActorSystem` class.
-In the Scala side of AMK we provide a subset of the Akka `ActorRef` and the `ActorDSL` that enables us mimic the Akka functionality.
+In the Scala side of AMK we provide a subset of the Akka `ActorRef` and the `ActorDSL` which is the actual singleton object in the Akka library.
 
-This step of the migration makes all accesses to actors through `ActorRef`s. First, we present how to migrate common patterns for instantiating 
-Scala `Actor`s. Then we show how to overcome issues with different interfaces of `ActorRef` and `Actor`.
+This step of the migration makes all accesses to actors through `ActorRef`s. First, we show how to migrate common patterns for instantiating 
+Scala `Actor`s. Then we show how to overcome issues with the different interfaces of `ActorRef` and `Actor`, respectively.
 
 #### Actor Instantiation
 
@@ -142,7 +152,7 @@ The translation rules for actor instantiation (the following rules require impor
 2. DSL for Creating Actors
 
         val myActor = actor {
-           // actor definition
+          // actor definition
         }
 
     Should be replaced with
@@ -156,7 +166,7 @@ The translation rules for actor instantiation (the following rules require impor
 3. Object Extended from the `Actor` Trait
 
         object MyActor extends Actor {
-           // MyActor definition
+          // MyActor definition
         }
         MyActor.start
 
@@ -170,7 +180,7 @@ The translation rules for actor instantiation (the following rules require impor
           val ref = ActorDSL.actor(new MyActor)
         }
 
-   All accesses to the object `MyActor` should be replaced with accesses to the `MyActor.ref`.
+   All accesses to the object `MyActor` should be replaced with accesses to `MyActor.ref`.
 
 Note that Akka actors are always started on instantiation. Therefore, the above translation will change the migrated system so all the actors start
  right after construction. In case actors in the migrated system are created and started at different locations and changing this can affect the behavior of the system, 
