@@ -25,7 +25,32 @@ that make the migration possible. Finally, in Section "Step by Step Guide
  for Migration to Akka" we show individual steps, with working examples,
  that are recommended when migrating from Scala Actors to Akka's actors.
 
-## 2. Deciding on Migration
+
+## 2. Limitations of the Migration Kit
+
+1. Relying on termination reason and bidirectional behavior with `link` method - Scala and Akka actors have different fault-handling and actor monitoring models.
+In Scala linked actors terminate if one of the linked parties terminates abnormally. If termination is tracked explicitly (by `self.trapExit`) the actor receives
+the termination reason from the failed actor. This functionality can not be migrated to Akka with the AMK. The AMK allows migration only for the 
+[Akka monitoring](http://doc.akka.io/docs/akka/2.1.0-RC1/general/supervision.html#What_Lifecycle_Monitoring_Means)
+mechanism. Monitoring is different than linking because it is unidirectional and the termination reason is now known. If monitoring support is not enough to migrate
+ the user code there are two possible workarounds:
+    * Postpone the migration of linking to the last possible moment (Step 4). Then when moving to Akka create an [supervision hierarchy](http://doc.akka.io/docs/akka/2.1.0-RC1/general/supervision.html) that will handle faults.
+    * Make all actor failures explicit and send user defined messages for each type of failure in the actor. For example, in the master-slave configuration, 
+    slave catches errors explicitly and notifies the master about the failure by sending a message containing the type of failure.
+
+2. Usage of the `restart` method - Akka does not provide explicit restart of actors so we can not provide the smooth migration for this use-case. 
+The user must change the system so there are no usages of the `restart` method.
+
+3. Usage of method `getState` - Akka actors do not have explicit state so this functionality can not be migrated. The user code must not 
+have `getState` invocations.
+
+4. Not starting actors right after instantiation - Akka actors are automatically started when instantiated. Users will have to 
+reshape their system so it starts all the actors right after their instantiation.
+
+5. Method `mailboxSize` does not exist in Akka and therefore can not be migrated. This method is seldom used and can easily be removed.
+
+
+### Deciding on Migration
 
 A user of Scala actors can choose between staying with the Scala actors, and
 migrating to Akka. The decision depends on the code base that needs to be
@@ -44,36 +69,13 @@ and assess weather it is better to migrate, or to stay with the Scala actors.
 the users need to reshape code of the `act` method. The `receive` is modeled with `react` and `andThen` on the 
 message processing partial function. Simple examples are presented in Step 4.
 
-3. Relying on termination reason and bidirectional behavior with `link` method - Scala and Akka actors have different fault-handling and actor monitoring models.
-In Scala linked actors terminate if one of the linked parties terminates abnormally. If termination is tracked explicitly (by `self.trapExit`) the actor receives
-the termination reason from the failed actor. This functionality can not be migrated to Akka with the AMK. The AMK allows migration only for the 
-[Akka monitoring](http://doc.akka.io/docs/akka/2.1.0-RC1/general/supervision.html#What_Lifecycle_Monitoring_Means)
-mechanism. Monitoring is different than linking because it is unidirectional and the termination reason is now known. If monitoring support is not enough to migrate
- the user code there are two possible workarounds:
-    * Postpone the migration of linking to the last possible moment (Step 4). Then when moving to Akka create an [supervision hierarchy](http://doc.akka.io/docs/akka/2.1.0-RC1/general/supervision.html) that will handle faults.
-    * Make all actor failures explicit and send user defined messages for each type of failure in the actor. For example, in the master-slave configuration, 
-    slave catches errors explicitly and notifies the master about the failure by sending a message containing the type of failure.
-
-4. Usage of the `restart` method - Akka does not provide explicit restart of actors so we can not provide the smooth migration for this use-case. 
-The user must change the system so there are no usages of the `restart` method.
-
-5. Usage of method `getState` - Akka actors do not have explicit state so this functionality can not be migrated. The user code must not 
-have `getState` invocations.
-
-6. Not starting actors right after instantiation - Akka actors are automatically started when instantiated. Users will have to 
-reshape their system so it starts all the actors right after their instantiation.
-
-7. TODO Philipp (Check the explanation) Migration of `RemoteActor`s is not directly supported - remote actors will need to be changed to the Akka implementation 
-in the final step of the guide.
-
-8. Method `mailboxSize` does not exist in Akka and therefore can not be migrated. This method is seldom used and can easily be removed.
-
 Additionally, users should be aware that concurrent code is notorious for bugs that are hard to debug and fix.
 Due to differences between actor implementations it is possible that errors will appear. It is recommended
 to thoroughly test the code after the migration is complete.
 
 In case of staying with Scala actors, the users need to make a fork of the Scala actors in which the deprecation is removed and library will be maintained.
 Forking and maintaining the fork of Scala actors can require significant effort in the long run. However it is less error prone than migration to Akka.
+
 
 ## 3. Migration Overview
 
