@@ -22,7 +22,7 @@ has, and we point out which cases can be hard to migrate. In Section
 "Migration Overview" we describe the migration process and talk about
 changes in the [Scala distribution](http://www.scala-lang.org/downloads)
 that make the migration possible. Finally, in Section "Step by Step Guide
- for Migration to Akka" we show individual steps, with working examples,
+ for Migrating to Akka" we show individual steps, with working examples,
  that are recommended when migrating from Scala Actors to Akka's actors.
 
 
@@ -102,7 +102,7 @@ After the migration on the Scala side is complete the user should change import 
 the library used to Akka. On the Akka side, the `ActorDSL` and the `ActWithStash` allow
  modeling the `react` construct of Scala Actors and their life cycle. This step migrates all actors to the Akka back-end and could introduce bugs in the system. Once code is migrated to Akka, users will be able to use all the features of Akka.
 
-## 4. Step by Step Guide for Migration to Akka
+## 4. Step by Step Guide for Migrating to Akka
 
 In this chapter we will go through 5 steps of the actor migration. After each step the code can be tested for possible errors. In the first 4
  steps one can migrate one actor at a time and test the functionality. However, the last step migrates all actors to Akka and it can be tested
@@ -113,7 +113,7 @@ The Scala actors library provides public access to multiple types of actors. The
 provides slightly richer functionality. To make further steps of the migration easier we will first change each actor in the system to be of type `Actor`.
 This migration step is straightforward since the `Actor` class is located at the bottom of the hierarchy and provides the broadest functionality. 
 
-The Actors from the Scala library should be migrated by the the following rules:
+The Actors from the Scala library should be migrated according to the following rules:
 
 1. `class MyServ extends Reactor[T]` -> `class MyServ extends Actor`
 
@@ -132,7 +132,7 @@ that information then one needs to: _i)_ apply pattern matching with explicit ty
 ### Step 2 - Instantiations
 
 In Akka, actors can be accessed only through the narrow interface called `ActorRef`. Instances of `ActorRef` can be acquired either 
-by invoking an `actor` method on the `ActorDSL` object or through the `actorOf` method on an instance of the `ActorSystem` class.
+by invoking an `actor` method on the `ActorDSL` object or through the `actorOf` method on an instance of an `ActorRefFactory`.
 In the Scala side of AMK we provide a subset of the Akka `ActorRef` and the `ActorDSL` which is the actual singleton object in the Akka library.
 
 This step of the migration makes all accesses to actors through `ActorRef`s. First, we show how to migrate common patterns for instantiating 
@@ -244,7 +244,7 @@ inside the actor definition so their migration is not relevant in this step.
 At this point all actors inherit the `Actor` trait, we instantiate actors through special factory methods,
 and all actors are accessed through the `ActorRef` interface.
 Now we need to change all actors to the `StashingActor` class from the AMK. This class behaves exactly the same like Scala `Actor`
-but provides methods that pair the Akka behavior as well. This allows easy, step by step, migration to the Akka behavior.
+but, additionally, provides methods that correspond to methods in Akka's `Actor` trait. This allows easy, step by step, migration to the Akka behavior.
 
 To change user base to the new type of actor all actors should extend the `StashingActor` instead of the `Actor`. Apply the 
 following rule:
@@ -544,7 +544,7 @@ the list of differences and their translation:
 
 1. `exit()`/`exit(reason)` - should be replaced with `context.stop(self)`
 
-2. `receiver()` - should be replaced with `self`
+2. `receiver` - should be replaced with `self`
 
 3. `reply(msg)` - should be replaced with `sender ! msg`
 
@@ -598,7 +598,7 @@ In Akka only the currently processed message can be stashed. Therefore replace t
 
     def receive = {
       ...
-      case x => stash
+      case x => stash()
     }
 
 #### Adding Actor Systems
