@@ -145,9 +145,9 @@ The translation rules for actor instantiation (the following rules require impor
 1. Constructor Call Instantiation
 
         val myActor = new MyActor(arg1, arg2)
-        myActor.start
+        myActor.start()
 
-    Should be replaced with
+    should be replaced with
 
         ActorDSL.actor(new MyActor(arg1, arg2))
 
@@ -157,7 +157,7 @@ The translation rules for actor instantiation (the following rules require impor
           // actor definition
         }
 
-    Should be replaced with
+    should be replaced with
 
         val myActor = ActorDSL.actor(new Actor {
            def act() {
@@ -170,9 +170,9 @@ The translation rules for actor instantiation (the following rules require impor
         object MyActor extends Actor {
           // MyActor definition
         }
-        MyActor.start
+        MyActor.start()
 
-    Should be replaced with
+    should be replaced with
 
         class MyActor extends Actor {
           // MyActor definition
@@ -184,8 +184,8 @@ The translation rules for actor instantiation (the following rules require impor
 
    All accesses to the object `MyActor` should be replaced with accesses to `MyActor.ref`.
 
-Note that Akka actors are always started on instantiation. Therefore, the above translation will change the migrated system so all the actors start
- right after construction. In case actors in the migrated system are created and started at different locations and changing this can affect the behavior of the system, 
+Note that Akka actors are always started on instantiation. In case actors in the migrated
+ system are created and started at different locations, and changing this can affect the behavior of the system, 
 users need to change the code so actors are started right after instantiation.
 
 #### Different Method Signatures
@@ -197,7 +197,7 @@ Unfortunately, some of the methods that Scala `Actor`s provide can not be migrat
 1. `getState()` - actors in Akka are managed by their supervising actors and are restarted by default.
 In that scenario state of an actor is not relevant.
 
-2. `restart()` - standard Akka actors are restarted by default after failure. This can not be paired on the Scala side.
+2. `restart()` - explicitly restarts a Scala actor. There is no corresponding functionality in Akka.
 
 All other `Actor` methods need to be translated to two methods that exist on the ActorRef. The translation is achieved by the rules described below. 
 Note that all the rules require the following imports:
@@ -207,34 +207,36 @@ Note that all the rules require the following imports:
     import scala.actors.migration._
     import scala.concurrent._
 
-1. `!!(msg: Any): Future[Any]` gets replaced with `?`:
+Additionally rules 1-3 require an implicit `Timeout` with infinite duration defined in the scope. However, since Akka does not allow for infinite timeouts, we will use 
+100 years. For example:
 
-        actor !! message ->
-          val fut = respActor.?(message)(Timeout((100 * 365) days))
-          Await.result(fut, Duration.Inf)
+    implicit val timeout = Timeout(36500 days)
+
+Rules: 
+
+1. `!!(msg: Any): Future[Any]` gets replaced with `?`. This rule will change a return type to the `scala.concurrent.Future` which might not type check. 
+Since `scala.concurrent.Future` has broader functionality than the previously returned one, this type error can be easily fixed with local changes:
+
+        actor !! message -> respActor ? message          
 
 2. `!![A] (msg: Any, handler: PartialFunction[Any, A]): Future[A]` gets replaced with `?`. The handler can be extracted as a separate
 function and then applied to the generated future result. The result of a handle should yield another future like
 in the following example:
 
         val handler: PartialFunction[Any, T] =  ... // handler
-        actor !! (message, handler) ->
-          val fut = (respActor.?(message)(Timeout((100 * 365) days)))
-          Await.result(fut.map(handler), Duration.Inf)
+        actor !! (message, handler) -> (respActor ? message) map handler
 
 3. `!? (msg: Any): Any` gets replaced with `?` and explicit blocking on the returned future:
 
-        actor !? message ->
-          val res = respActor.?(message)(Timeout((100 * 365) days))
-          Await.result(res, Duration.Inf)
+        actor !? message ->          
+          Await.result(respActor ? message, Duration.Inf)
 
 4. `!? (msec: Long, msg: Any): Option[Any]` gets replaced with `?` and explicit blocking on the future:
 
-        actor !? (timeout, message) ->
-          val res = respActor.?(message)(Timeout(timeout milliseconds))
-          val promise = Promise[Option[Any]]()
-          res.onComplete(v => promise.success(v.toOption))
-          Await.result(promise.future, Duration.Inf)
+        actor !? (dur, message) ->
+          val res = respActor.?(message)(Timeout(dur milliseconds))
+          val optFut = res map (Some(_)) recover { case _ => None }
+          Await.result(optFut, Duration.Inf)         
 
 Public methods that are not mentioned here are declared public for purposes of the actors DSL. They can be used only
 inside the actor definition so their migration is not relevant in this step.
@@ -259,14 +261,12 @@ devise a translation based on these two.
 
         def act() = {
           // do before
-          receive {
-            case msg =>
-              // process 1
+          receive {            
+              // handler 1                           
           }
           // in between
-          receive {
-            case msg =>
-              // process 2
+          receive {            
+              // handler 2
           }
           // after
         }
@@ -275,20 +275,22 @@ devise a translation based on these two.
 
         def act() = {
           // do before
-          react (({
-            case msg =>
-              // process 1
+          react (({            
+              // handler 1
           }: PartialFunction[Any, Unit]).andThen { x =>
             // in between
             react (({
               case msg =>
-                // process 2
+                // handler 2
             }: PartialFunction[Any, Unit]).andThen { x =>
               // after
             })
           })
         }
-
+               
+   The `andThen` combinator is used to avoid duplication of `\\ after` code in each case
+   of handlers.
+     
 2. Receive inside a loop that terminates based on a condition.
 
         def act() = {
@@ -374,7 +376,7 @@ should be moved to the `preStart` method.
 
    should be replaced with
 
-        def preStart() {
+        override def preStart() {
           // some code
         }
 
@@ -441,8 +443,7 @@ should be moved to the `preStart` method.
                   case y: String =>
                     // do nested task
                 }
-              }
-              // after react
+              }              
             }
           }
         }
@@ -452,8 +453,7 @@ should be moved to the `preStart` method.
         def receive = {
           case x: Int =>
             // do task
-            if (x == 42) {
-              // after react
+            if (x == 42) {              
               context.stop(self)
             } else {
               context.become(({
@@ -466,7 +466,7 @@ should be moved to the `preStart` method.
             }
         }
 
-5. In case `reactWithin` method is used use the following translation rule.
+5. For `reactWithin` method use the following translation rule:
 
         loop {
           reactWithin(t) {
@@ -561,7 +561,7 @@ returns the `Terminated(a: ActorRef)` message that contains only the `ActorRef`.
 Note that this will happen even when the watched actor terminated normally. In Scala linked actors terminate, with the same termination reason, only if
 one of the actors terminates abnormally.
 
-   If the system can not be migrated solely with watching the user has the two alternatives described in "Deciding on Migration".
+   If the system can not be migrated solely with watching the user has the two alternatives described in "Limitations of the Migration Kit".
 
    NOTE: There is another subtle difference between Scala and Akka actors. In Scala, `link`/`watch` to the already dead actor will not have affect.
 In Akka, watching the already dead actor will result in sending the `Terminated` message. This can give unexpected behavior in the Step 5 of the migration guide.
@@ -574,7 +574,7 @@ Akka actors. In order to do this configure the build to exclude the `scala-actor
   and can be configured by these [instructions](http://doc.akka.io/docs/akka/2.1.0-RC1/intro/getting-started.html#Using_a_build_tool). During
   the RC phase the Akka RC number should match the Scala one (e.g. Scala 2.10.0-RC2 runs with Akka 2.1-RC2).
 
-After this change the compilation will fail due to different package names and some . We will have to change each imported actor 
+After this change the compilation will fail due to different package names and slight differences in the API. We will have to change each imported actor 
 from scala to Akka. Following is the non-exhaustive list of package names that need to be changed:
 
     scala.actors._ -> akka.actor._
