@@ -568,16 +568,22 @@ After this change the compilation will fail due to different package names and s
 from scala to Akka. Following is the non-exhaustive list of package names that need to be changed:
 
     scala.actors._ -> akka.actor._
-    scala.actors.migration.StashingActor -> 
-      akka.actor.ActorDSL.ActWithStash
     scala.actors.migration.pattern.ask -> akka.pattern.ask
     scala.actors.migration.Timeout -> akka.util.Timeout
 
-Then there is a slight difference in the declaration of the `StashingActor` in Scala and Akka. All declarations of
-the `StashingActor` should be replaced with `ActWithStash`. This transformation can be achieved by simple text search and replace. 
-Also, method declarations `def receive =` in `ActWithStash` should be prepended with override.
+Occurrences of `StashingActor` must be replaced with `ActWithStash`
+(in the `akka.actor.ActorDSL` object). This can be done conveniently
+using a renaming import (using an import selector clause):
 
-In the Scala actors the `stash` method needs a message as a parameter. For example:
+    import akka.actor.ActorDSL.{ ActWithStash => StashingActor }
+
+This imports Akka's `ActWithStash` and renames it to
+`StashingActor`. This way, it is not necessary to textually replace
+all occurrences of `StashingActor`.
+
+Also, method declarations `def receive =` in `ActWithStash` should be prepended with `override`.
+
+In Scala actors the `stash` method needs a message as a parameter. For example:
 
     def receive = {
       ...
