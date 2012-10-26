@@ -16,15 +16,20 @@ code using Scala Actors to Akka. The purpose of this document is to
 guide users through the migration process and explain how to use the
 AMK.
 
-This guide has the following structure. In Section "Deciding on
-Migration" we discuss the possibilities that a user of Scala Actors
-has, and we point out which cases can be hard to migrate. In Section
-"Migration Overview" we describe the migration process and talk about
-changes in the [Scala distribution](http://www.scala-lang.org/downloads)
-that make the migration possible. Finally, in Section "Step by Step Guide
- for Migrating to Akka" we show individual steps, with working examples,
- that are recommended when migrating from Scala Actors to Akka's actors.
+This guide has the following structure. In Section "Limitations of the
+Migration Kit" we outline the main limitations of the migration
+kit. In Section "Migration Overview" we describe the migration process
+and talk about changes in the [Scala
+distribution](http://www.scala-lang.org/downloads) that make the
+migration possible. Finally, in Section "Step by Step Guide for
+Migrating to Akka" we show individual steps, with working examples,
+that are recommended when migrating from Scala Actors to Akka's
+actors.
 
+A disclaimer: concurrent code is notorious for bugs that are hard to
+debug and fix.  Due to differences between the two actor
+implementations it is possible that errors appear. It is recommended
+to thoroughly test the code after each step of the migration process.
 
 ## 2. Limitations of the Migration Kit
 
@@ -48,33 +53,6 @@ have `getState` invocations.
 reshape their system so it starts all the actors right after their instantiation.
 
 5. Method `mailboxSize` does not exist in Akka and therefore can not be migrated. This method is seldom used and can easily be removed.
-
-
-### Deciding on Migration
-
-A user of Scala actors can choose between staying with the Scala actors, and
-migrating to Akka. The decision depends on the code base that needs to be
-migrated. Some use cases are harder to migrate than the others. Also, some
-projects might not require high performance of Akka and do not have a need to
-move away from Scala actors.
-
-In the following list we present use cases that are harder to migrate and describe what are the difficulties. Users should compare their code base with these cases
-and assess weather it is better to migrate, or to stay with the Scala actors.
-
-1. Nesting `react`/`reactWithin` calls - the message handling partial function needs to be expanded
- with additional constructs that will bring it closer to the Akka model. Although these changes can be
- complicated, the migration is possible for the arbitrary level of nesting. See Step 4 for the examples.
-
-2. Using `receive`/`receiveWithn` methods with complex control flow - migration can be complicated since
-the users need to reshape code of the `act` method. The `receive` is modeled with `react` and `andThen` on the 
-message processing partial function. Simple examples are presented in Step 4.
-
-Additionally, users should be aware that concurrent code is notorious for bugs that are hard to debug and fix.
-Due to differences between actor implementations it is possible that errors will appear. It is recommended
-to thoroughly test the code after the migration is complete.
-
-In case of staying with Scala actors, the users need to make a fork of the Scala actors in which the deprecation is removed and library will be maintained.
-Forking and maintaining the fork of Scala actors can require significant effort in the long run. However it is less error prone than migration to Akka.
 
 
 ## 3. Migration Overview
@@ -350,19 +328,31 @@ should behave exactly the same.
 
 In this section we describe how to remove the `act` method from `StashingActor`s and how to
 change the methods used in the `StashingActor` to resemble Akka. Since this step can be complex, it is recommended 
-to do changes one actor at a time. In Scala, actor's behavior is defined by implementing the act method. Logically, an actor is a concurrent process
+to do changes one actor at a time. In Scala, an actor's behavior is defined by implementing the `act` method. Logically, an actor is a concurrent process
 which executes the body of its `act` method, and then terminates. In Akka, the behavior is defined by using a global message
-handler which processes the messages in the actors mailbox one by one. The message handler is a partial function, returned by the `receive` method, 
+handler which processes the messages in the actor's mailbox one by one. The message handler is a partial function, returned by the `receive` method, 
 which gets applied to each message.
 
-Since the behavior of Akka methods in the `StashingActor` depends on the removal of the `act` we have to do that first. Then we will give the translation 
-rules for translating individual methods of the Scala `Actor`.
+Since the behavior of Akka methods in the `StashingActor` depends on the removal of the `act` method we have to do that first. Then we will give the translation 
+rules for translating individual methods of the `scala.actors.Actor` trait.
 
 #### Removal of `act`
 
 In the following list we present the translation rules for common message processing patterns. This list is not 
-exhausive and it covers only the common patterns. However, users can migrate more complex `act` methods to Akka by looking
+exhaustive and it covers only some common patterns. However, users can migrate more complex `act` methods to Akka by looking
  at existing translation rules and extending them for more complex situations.
+
+A note about nested `react`/`reactWithin` calls: the message handling
+partial function needs to be expanded with additional constructs that
+bring it closer to the Akka model. Although these changes can be
+complicated, migration is possible for an arbitrary level of
+nesting. See below for examples.
+
+A note about using `receive`/`receiveWithin` with complex control
+flow: migration can be complicated since it requires refactoring the
+`act` method. A `receive` call can be modeled using `react` and
+`andThen` on the message processing partial function. Again, simple
+examples are shown below.
 
 1. If there is any code in the `act` method that is being executed before the first `loop` with `react` that code
 should be moved to the `preStart` method.
@@ -388,7 +378,7 @@ should be moved to the `preStart` method.
 
    This rule should be used in other patterns as well if there is code before the first react.
 
-2. When `act` is in the form of the simple `loop` with a nested react use the following pattern.
+2. When `act` is in the form of a simple `loop` with a nested `react` use the following pattern.
 
         def act() = {
           loop {
@@ -428,7 +418,7 @@ should be moved to the `preStart` method.
             }
         }
 
-4. When `act` contains nested reacts use the following rule:
+4. When `act` contains nested `react`s use the following rule:
 
         def act() = {
           var c = true
